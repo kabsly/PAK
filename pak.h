@@ -281,7 +281,10 @@ PAK_PREFIX void *pak__vec_new(size_t sz, int max)
     h->sig = PAK_VEC_SIGNATURE;
     h->gc = NULL;
 
+    // The "zu" sequence is not supported on windows
+#ifndef _WIN32
     pak_debug("Created vector %p (Max: %d, Element size: %zu).", h, max, sz);
+#endif
 
     return vec;
 
