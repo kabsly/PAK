@@ -1,6 +1,6 @@
-#ifndef _pak_vec_test_h
-#define _pak_vec_test_h
+#ifndef PAK_VEC_TEST_HEADER
+#define PAK_VEC_TEST_HEADER
 
 char *pak_vec_test();
 
-#endif // _pak_vec_test_h
+#endif // PAK_VEC_TEST_HEADER

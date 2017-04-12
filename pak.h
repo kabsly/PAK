@@ -94,8 +94,8 @@
     THE SOFTWARE.THE SOFTWARE IS PROVIDED "AS IS"
 */
 
-#ifndef _pak_h
-#define _pak_h
+#ifndef PAK_HEADER
+#define PAK_HEADER
 
 #ifdef __cplusplus
 extern "C" {
@@ -442,4 +442,4 @@ fail:
 }
 #endif
 
-#endif // _pak_h
+#endif // PAK_HEADER
