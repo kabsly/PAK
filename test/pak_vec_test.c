@@ -1,7 +1,7 @@
 #include "pak_test.h"
 #include "pak_vec_test.h"
 
-#define PAK_INIT
+#define PAK_IMPLEMENTATION
 #define PAK_VERBOSE
 #include <pak.h>
 

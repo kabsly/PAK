@@ -17,10 +17,10 @@
         Libraries can be disabled, for example just define PAK_NO_VEC in order
         to disable PAK Vectors from being used.
 
-        You must define PAK_INIT before including this header file to define
+        You must define PAK_IMPLEMENTATION before including this header file to define
         all of the functions, otherwise you'll just get the prototypes.
 
-            #define PAK_INIT
+            #define PAK_IMPLEMENTATION
             #include "pak.h"
 
         It is also important to know how PAK achieves type-safety in order to
@@ -119,7 +119,7 @@ extern "C" {
 #endif
 
 // Malloc wrapper
-#if defined PAK_INIT && !defined PAK_NO_MALLOC
+#if defined PAK_IMPLEMENTATION && !defined PAK_NO_MALLOC
 #   include <stdlib.h>
 #   define pak_malloc   malloc
 #   define pak_calloc   calloc
@@ -129,7 +129,7 @@ extern "C" {
 #   define pak_free     free
 #endif
 
-#ifdef PAK_INIT
+#ifdef PAK_IMPLEMENTATION
 #   include <string.h> // memcpy
 #else
 #   include <stddef.h> // size_t
@@ -204,28 +204,28 @@ typedef struct {
 #define pak_vec_notype_last(V)      pak_vec_notype_get((V), pak_vec_count((V)) - 1)
 
 PAK_PREFIX void *pak__vec_new(size_t sz, int max);
-#define pak_vec_new(T, M) (T *) pak__vec_new(sizeof(T), M)
+#define pak_vec_new(T, M) (T *) pak__vec_new(sizeof(T), (M))
 
 PAK_PREFIX void *pak__vec_new_gc(size_t sz, int max, pak__vec_gc gc);
-#define pak_vec_new_gc(T, M, F) (T *) pak__vec_new_gc(sizeof(T), M, F)
+#define pak_vec_new_gc(T, M, F) (T *) pak__vec_new_gc(sizeof(T), (M), (F))
 
 PAK_PREFIX void pak__vec_free(void **pp);
-#define pak_vec_free(PP) pak__vec_free((void **) PP)
+#define pak_vec_free(PP) pak__vec_free((void **) (PP))
 
 PAK_PREFIX int pak__vec_resize(void **pp, int max);
-#define pak_vec_resize(PP, M) pak__vec_resize((void **) PP, M)
+#define pak_vec_resize(PP, M) pak__vec_resize((void **) (PP), (M))
 
 PAK_PREFIX int pak__vec_expand(void **pp);
-#define pak_vec_expand(PP) pak__vec_expand((void **) PP)
+#define pak_vec_expand(PP) pak__vec_expand((void **) (PP))
 
 PAK_PREFIX int pak__vec_contract(void **pp);
-#define pak_vec_contract(PP) pak__vec_contract((void **) PP)
+#define pak_vec_contract(PP) pak__vec_contract((void **) (PP))
 
 PAK_PREFIX int pak__vec_push(void **pp, void *e);
 #define pak_vec_push(V, E) pak__vec_push((void **) (V), (void *) &(E))
 
 PAK_PREFIX int pak__vec_pop(void **pp);
-#define pak_vec_pop(PP) pak__vec_pop((void **) PP)
+#define pak_vec_pop(PP) pak__vec_pop((void **) (PP))
 
 // Create typesafe wrapper functions for the vector implementation,
 // using a "ghetto" C++ style template.
@@ -261,7 +261,7 @@ PAK_PREFIX int pak__vec_pop(void **pp);
     extern int NAME##_pop(NAME *pp);
 
 // Begin function definitions
-#ifdef PAK_INIT
+#ifdef PAK_IMPLEMENTATION
 
 PAK_PREFIX void *pak__vec_new(size_t sz, int max)
 {
@@ -431,7 +431,7 @@ fail:
     return -1;
 }
 
-#endif // PAK_INIT
+#endif // PAK_IMPLEMENTATION
 #endif // PAK_NO_VEC
 
 /*
