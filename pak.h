@@ -55,12 +55,6 @@
             pak_realloc  realloc
             pak_free     free
 
-        The following can also be redefined, but they are not used in PAK as of
-        writing this:
-
-            pak_reallocf reallocf
-            pak_valloc   valloc
-
         WARNING! If you define PAK_NO_MALLOC, please be extra careful that you
         redefine ALL of the wrapper macros. This is because PAK uses typecasts
         in order to provide support for C++, so depending on your compiler, you
@@ -124,8 +118,6 @@ extern "C" {
 #   define pak_malloc   malloc
 #   define pak_calloc   calloc
 #   define pak_realloc  realloc
-#   define pak_reallocf reallocf
-#   define pak_valloc   valloc
 #   define pak_free     free
 #endif
 
