@@ -12,7 +12,8 @@
 
         Here is a list of the libraries found in PAK:
 
-            - PAK Vectors, generic dynamic array library (redundant in C++)
+            - PAK Lists, generic linked list library
+            - PAK Vectors, generic dynamic array library
 
         Libraries can be disabled, for example just define PAK_NO_VEC in order
         to disable PAK Vectors from being used.
