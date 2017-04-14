@@ -187,7 +187,7 @@ typedef struct {
 #define pak_vec_max(V)          (pak_vec_header((V))->max)
 #define pak_vec_elem_sz(V)      (pak_vec_header((V))->elem_sz)
 #define pak_vec_isvalid(V)      (pak_vec_header((V))->sig == PAK_VEC_SIGNATURE)
-#define pak_vec_foreach(I, V)   for (I = 0; I < pak_vec_count((V)); i++)
+#define pak_vec_foreach(I, V)   for (I = 0; I < pak_vec_count((V)); I++)
 #define pak_vec_last(V)         V[pak_vec_count((V)) - 1]
 
 // Get values from the vector, without knowing the type, mostly for internal
