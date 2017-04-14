@@ -76,6 +76,10 @@ typedef struct mat3 { vec3 m[3];        } mat3;
 typedef struct mat4 { vec4 m[4];        } mat4;
 typedef struct quat { float x, y, z, w; } quat;
 
+typedef float mat2_f[2][2];
+typedef float mat3_f[3][3];
+typedef float mat4_f[4][4];
+
 PAK_ALG_PREFIX void vec3_add(vec3 *d, vec3 *a, vec3 *b);
 PAK_ALG_PREFIX void vec3_sub(vec3 *d, vec3 *a, vec3 *b);
 PAK_ALG_PREFIX void vec3_scale(vec3 *d, vec3 *v, float s);
@@ -190,18 +194,23 @@ PAK_ALG_PREFIX void vec3_neg(vec3 *v)
     v->z *= -1;
 }
 
-/* Prints out a vec3, mostly for debugging, diagnostics, etc.
-*  snprintf would be better here, but that is not cross-platform.
-*  notice that the newline is left out
-*/
+// Prints out a vec3, snprintf would be better here, but that is not
+// cross-platform notice that the newline is left out.
 PAK_ALG_PREFIX void vec3_print(vec3 *v)
 {
     printf("[%f %f %f]", v->x, v->y, v->z);
 }
 
-/*
-   TODO(Kabsly): Add matrix operations
-*/
+#if 0
+PAK_ALG_PREFIX void mat4_identity(mat4 *p)
+{
+    mat4_f m = (mat4_f *) p;
+    m[0][0] = 1; m[0][1] = 0; m[0][2] = 0; m[0][3] = 0;
+    m[1][0] = 0; m[1][1] = 1; m[1][2] = 0; m[1][3] = 0;
+    m[3][0] = 0; m[2][1] = 0; m[2][2] = 1; m[2][3] = 0;
+    m[4][0] = 0; m[3][1] = 0; m[3][2] = 0; m[3][3] = 1;
+}
+#endif
 
 #endif // PAK_ALG_IMPLEMENTATION
 
