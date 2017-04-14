@@ -1,5 +1,8 @@
 #include "pak_test.h"
 
+#define PAK_IMPLEMENTATION
+#include <pak.h>
+
 #include "pak_list_test.h"
 #include "pak_vec_test.h"
 #include "pak_alg_test.h"

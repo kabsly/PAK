@@ -1,18 +1,17 @@
 #include "pak_test.h"
 #include "pak_vec_test.h"
 
-#define PAK_IMPLEMENTATION
-#define PAK_VERBOSE
+#include <stdlib.h>
 #include <pak.h>
 
 PAK_INIT_VEC(IntVector, int, NULL);
 
-void gc(void *e)
+void vec_gc(void *e)
 {
     int **p = (int **) e; 
     free(*p);
 }
-PAK_INIT_VEC(GCVector, int*, gc);
+PAK_INIT_VEC(GCVector, int*, vec_gc);
 
 // Test out raw PAK vectors (the non-typesafe void* ones)
 char *pak_vec_raw_test()

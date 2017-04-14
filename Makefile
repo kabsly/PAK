@@ -1,6 +1,6 @@
 CC=clang
-DEBUGER=lldb
-CFLAGS=-g -std=c99 -O2 -pipe -Wall -Wextra -Wformat -fno-strict-aliasing ${INCLUDES}
+DEFINES=-DPAK_VERBOSE
+CFLAGS=-g -std=c99 -O2 -pipe -Wall -Wextra -Wformat -fno-strict-aliasing ${INCLUDES} ${DEFINES}
 INCLUDES=-I. -Itest
 
 SOURCES=$(wildcard *.c test/*.c)
@@ -15,9 +15,6 @@ $(TARGET): $(OBJECTS)
 
 all:
 	$(TARGET)
-
-debug: $(TARGET)
-	$(DEBUGER) ./$(TARGET)
 
 clean:
 	rm -rf $(OBJECTS) a.out
