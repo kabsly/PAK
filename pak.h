@@ -510,8 +510,8 @@ PAK_PREFIX int pak__vec_expand(void **pp);
 PAK_PREFIX int pak__vec_contract(void **pp);
 #define pak_vec_contract(PP) pak__vec_contract((void **) (PP))
 
-PAK_PREFIX int pak__vec_push(void **pp, void *e);
-#define pak_vec_push(V, E) pak__vec_push((void **) (V), (void *) &(E))
+PAK_PREFIX int pak__vec_push(void **pp, size_t sz, void *e);
+#define pak_vec_push(V, E) pak__vec_push((void **) (V), sizeof(E), (void *) &(E))
 
 PAK_PREFIX int pak__vec_pop(void **pp);
 #define pak_vec_pop(PP) pak__vec_pop((void **) (PP))
@@ -677,19 +677,22 @@ fail:
     return -1;
 }
 
-PAK_PREFIX int pak__vec_push(void **pp, void *e)
+PAK_PREFIX int pak__vec_push(void **pp, size_t sz, void *e)
 {
-    pak__vec *h = pak_vec_header(*pp);
+    pak__vec *vec = *(pak__vec **) pp;
+    pak__vec *h = pak_vec_header(vec);
+
     pak_assert(h->sig == PAK_VEC_SIGNATURE);
+    pak_assert(sz == h->elem_sz)
 
     if (h->count >= h->max) {
         pak_assert(pak_vec_expand(pp) == 0);
-        h = pak_vec_header(*pp);
+        h = pak_vec_header(vec);
     }
 
     h->count++;
 
-    memcpy(pak_vec_notype_last(*pp), e, h->elem_sz);
+    memcpy(pak_vec_notype_last(vec), e, sz);
 
     return 0;
 
