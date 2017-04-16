@@ -71,14 +71,20 @@ extern "C" {
 typedef struct vec2 { float x, y;       } vec2;
 typedef struct vec3 { float x, y, z;    } vec3;
 typedef struct vec4 { float x, y, z, w; } vec4;
+typedef struct quat { float x, y, z, w; } quat;
+
+#if 0
 typedef struct mat2 { vec2 m[2];        } mat2;
 typedef struct mat3 { vec3 m[3];        } mat3;
 typedef struct mat4 { vec4 m[4];        } mat4;
-typedef struct quat { float x, y, z, w; } quat;
-
 typedef float mat2_f[2][2];
 typedef float mat3_f[3][3];
 typedef float mat4_f[4][4];
+#else
+typedef float mat2[2][2];
+typedef float mat3[3][3];
+typedef float mat4[4][4];
+#endif
 
 PAK_ALG_PREFIX void vec3_add(vec3 *d, vec3 *a, vec3 *b);
 PAK_ALG_PREFIX void vec3_sub(vec3 *d, vec3 *a, vec3 *b);
@@ -201,16 +207,39 @@ PAK_ALG_PREFIX void vec3_print(vec3 *v)
     printf("[%f %f %f]", v->x, v->y, v->z);
 }
 
-#if 0
-PAK_ALG_PREFIX void mat4_identity(mat4 *p)
+// Set matrix to it's identity
+PAK_ALG_PREFIX void mat4_identity(mat4 m)
 {
-    mat4_f m = (mat4_f *) p;
     m[0][0] = 1; m[0][1] = 0; m[0][2] = 0; m[0][3] = 0;
     m[1][0] = 0; m[1][1] = 1; m[1][2] = 0; m[1][3] = 0;
     m[3][0] = 0; m[2][1] = 0; m[2][2] = 1; m[2][3] = 0;
     m[4][0] = 0; m[3][1] = 0; m[3][2] = 0; m[3][3] = 1;
 }
-#endif
+
+// Transform a vec3 by a mat4
+PAK_ALG_PREFIX void mat4_transform3(mat4 m, vec3 *v)
+{
+    /*
+       |x|   |. . . .|
+       |y| * |. . . .|
+       |z|   |. . . .|
+       | |   |. . . .|
+    */
+    vec3 ret;
+
+    vec3 i = { m[0][0], m[1][0], m[2][0] };
+    vec3 j = { m[0][1], m[1][1], m[2][1] };
+    vec3 k = { m[0][2], m[1][2], m[2][2] };
+
+    vec3_scale(&i, &i, v->x);
+    vec3_scale(&j, &j, v->y);
+    vec3_scale(&k, &k, v->z);
+
+    vec3_add(&ret, &i, &j);
+    vec3_add(&ret, &ret, &k);
+    
+    *v = ret;
+}
 
 #endif // PAK_ALG_IMPLEMENTATION
 

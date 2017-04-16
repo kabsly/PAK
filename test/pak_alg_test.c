@@ -50,8 +50,25 @@ char *pak_alg_vec3_test()
     return NULL;
 }
 
+char *pak_alg_mat4_test()
+{
+    vec3 v = { 2, 2, 1 };
+    mat4 m = {{1, 0, 0, 1},
+              {0,-1, 0, 0},
+              {0, 4, 5, 4},
+              {5, 6, 2, 6}};
+
+    mat4_transform3(m, &v);
+
+    printf("vec3 after tranform: "); vec3_print(&v); puts("\n");
+    
+    return NULL;
+}
+
 char *pak_alg_test()
 {
     pak_test_run(pak_alg_vec3_test);
+    pak_test_run(pak_alg_mat4_test);
+
     return NULL;
 }
