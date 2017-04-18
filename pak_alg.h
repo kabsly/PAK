@@ -68,34 +68,52 @@ extern "C" {
 #   define PAK_ALG_PREFIX
 #endif
 
-typedef struct vec2 { float x, y;       } vec2;
-typedef struct vec3 { float x, y, z;    } vec3;
-typedef struct vec4 { float x, y, z, w; } vec4;
-typedef struct quat { float x, y, z, w; } quat;
+typedef struct vec2 { float x, y;       } vec2; // 8 bytes
+typedef struct vec3 { float x, y, z;    } vec3; // 12 bytes
+typedef struct vec4 { float x, y, z, w; } vec4; // 16 bytes
+typedef struct quat { float x, y, z, w; } quat; // 16 bytes
 
-#if 0
-typedef struct mat2 { vec2 m[2];        } mat2;
-typedef struct mat3 { vec3 m[3];        } mat3;
-typedef struct mat4 { vec4 m[4];        } mat4;
-typedef float mat2_f[2][2];
-typedef float mat3_f[3][3];
-typedef float mat4_f[4][4];
-#else
-typedef float mat2[2][2];
-typedef float mat3[3][3];
-typedef float mat4[4][4];
-#endif
+typedef float mat2[2][2]; // 16 bytes
+typedef float mat3[3][3]; // 36 bytes
+typedef float mat4[4][4]; // 64 bytes
+
+PAK_ALG_PREFIX void vec2_add(vec2 *d, vec2 *a, vec2 *b);
+PAK_ALG_PREFIX void vec2_sub(vec2 *d, vec2 *a, vec2 *b);
+PAK_ALG_PREFIX void vec2_scale(vec2 *d, vec2 *v, float s);
+PAK_ALG_PREFIX void vec2_add_eq(vec2 *d, vec2 *v);
+PAK_ALG_PREFIX void vec2_sub_eq(vec2 *d, vec2 *v);
+PAK_ALG_PREFIX void vec2_scale_eq(vec2 *d, float s);
 
 PAK_ALG_PREFIX void vec3_add(vec3 *d, vec3 *a, vec3 *b);
 PAK_ALG_PREFIX void vec3_sub(vec3 *d, vec3 *a, vec3 *b);
 PAK_ALG_PREFIX void vec3_scale(vec3 *d, vec3 *v, float s);
+PAK_ALG_PREFIX void vec3_add_eq(vec3 *d, vec3 *v);
+PAK_ALG_PREFIX void vec3_sub_eq(vec3 *d, vec3 *v);
+PAK_ALG_PREFIX void vec3_scale_eq(vec3 *d, float s);
 PAK_ALG_PREFIX void vec3_norm(vec3 *d, vec3 *v);
 PAK_ALG_PREFIX void vec3_lerp(vec3 *d, vec3 *a, vec3 *b, float s);
 PAK_ALG_PREFIX void vec3_cross(vec3 *d, vec3 *a, vec3 *b);
+PAK_ALG_PREFIX void vec3_print(vec3 *v);
+PAK_ALG_PREFIX void vec3_rotate_x(vec3 *v, float angle);
+PAK_ALG_PREFIX void vec3_rotate_y(vec3 *v, float angle);
+PAK_ALG_PREFIX void vec3_rotate_z(vec3 *v, float angle);
 PAK_ALG_PREFIX float vec3_mag(vec3 *v);
 PAK_ALG_PREFIX float vec3_dist(vec3 *a, vec3 *b);
 PAK_ALG_PREFIX float vec3_dot(vec3 *a, vec3 *b);
-PAK_ALG_PREFIX void vec3_print(vec3 *v);
+
+PAK_ALG_PREFIX void vec4_add(vec4 *d, vec4 *a, vec4 *b);
+PAK_ALG_PREFIX void vec4_sub(vec4 *d, vec4 *a, vec4 *b);
+PAK_ALG_PREFIX void vec4_scale(vec4 *d, vec4 *v, float s);
+PAK_ALG_PREFIX void vec4_add_eq(vec4 *d, vec4 *v);
+PAK_ALG_PREFIX void vec4_sub_eq(vec4 *d, vec4 *v);
+PAK_ALG_PREFIX void vec4_scale_eq(vec4 *d, float s);
+
+PAK_ALG_PREFIX void mat3_identity(mat3 m);
+PAK_ALG_PREFIX void mat3_mul(mat3 d, mat3 a, mat3 b);
+PAK_ALG_PREFIX void mat3_transform3(mat3 m, vec3 *v);
+
+PAK_ALG_PREFIX void mat4_transform3(mat4 m, vec3 *v);
+PAK_ALG_PREFIX void mat4_identity(mat4 m);
 
 /*
 
@@ -105,6 +123,11 @@ PAK_ALG_PREFIX void vec3_print(vec3 *v);
 
 #ifdef PAK_ALG_IMPLEMENTATION
 
+/*
+    Operators
+*/
+
+// Use macros to avoid typing a lot of code
 #define VEC2_2OP(A, B, POST)  \
     A->x = B->x POST;         \
     A->y = B->y POST;
@@ -135,9 +158,34 @@ PAK_ALG_PREFIX void vec3_print(vec3 *v);
     A->z = B->z OP C->z POST;       \
     A->w = B->w OP C->w POST;
 
+PAK_ALG_PREFIX void vec2_add(vec2 *d, vec2 *a, vec2 *b)   { VEC2_3OP(d,a,+,b,+0) }
+PAK_ALG_PREFIX void vec2_sub(vec2 *d, vec2 *a, vec2 *b)   { VEC2_3OP(d,a,-,b,+0) }
+PAK_ALG_PREFIX void vec2_scale(vec2 *d, vec2 *v, float s) { VEC2_2OP(d,    v,*s) }
+PAK_ALG_PREFIX void vec2_add_eq(vec2 *d, vec2 *v)         { VEC2_3OP(d,d,+,v,+0) }
+PAK_ALG_PREFIX void vec2_sub_eq(vec2 *d, vec2 *v)         { VEC2_3OP(d,d,-,v,+0) }
+PAK_ALG_PREFIX void vec2_scale_eq(vec2 *d, float s)       { VEC2_2OP(d,    d,*s) }
+
 PAK_ALG_PREFIX void vec3_add(vec3 *d, vec3 *a, vec3 *b)   { VEC3_3OP(d,a,+,b,+0) }
 PAK_ALG_PREFIX void vec3_sub(vec3 *d, vec3 *a, vec3 *b)   { VEC3_3OP(d,a,-,b,+0) }
 PAK_ALG_PREFIX void vec3_scale(vec3 *d, vec3 *v, float s) { VEC3_2OP(d,    v,*s) }
+PAK_ALG_PREFIX void vec3_add_eq(vec3 *d, vec3 *v)         { VEC3_3OP(d,d,+,v,+0) }
+PAK_ALG_PREFIX void vec3_sub_eq(vec3 *d, vec3 *v)         { VEC3_3OP(d,d,-,v,+0) }
+PAK_ALG_PREFIX void vec3_scale_eq(vec3 *d, float s)       { VEC3_2OP(d,    d,*s) }
+
+PAK_ALG_PREFIX void vec4_add(vec4 *d, vec4 *a, vec4 *b)   { VEC4_3OP(d,a,+,b,+0) }
+PAK_ALG_PREFIX void vec4_sub(vec4 *d, vec4 *a, vec4 *b)   { VEC4_3OP(d,a,-,b,+0) }
+PAK_ALG_PREFIX void vec4_scale(vec4 *d, vec4 *v, float s) { VEC4_2OP(d,    v,*s) }
+PAK_ALG_PREFIX void vec4_add_eq(vec4 *d, vec4 *v)         { VEC4_3OP(d,d,+,v,+0) }
+PAK_ALG_PREFIX void vec4_sub_eq(vec4 *d, vec4 *v)         { VEC4_3OP(d,d,-,v,+0) }
+PAK_ALG_PREFIX void vec4_scale_eq(vec4 *d, float s)       { VEC4_2OP(d,    d,*s) }
+
+/*
+   End operators
+*/
+
+/*
+    vec3
+*/
 
 // Determine the magnitude (length) of a vec3
 PAK_ALG_PREFIX float vec3_mag(vec3 *v)
@@ -200,12 +248,98 @@ PAK_ALG_PREFIX void vec3_neg(vec3 *v)
     v->z *= -1;
 }
 
+PAK_ALG_PREFIX void vec3_rotate_x(vec3 *v, float angle)
+{
+    float s = sin(angle), c = cos(angle);
+    const mat3 m = { { 1, 0, 0 },
+                     { 0, c,-s },
+                     { 0, s, c } };
+
+    mat3_transform3(m, v);
+}
+
+PAK_ALG_PREFIX void vec3_rotate_y(vec3 *v, float angle)
+{
+    float s = sin(angle), c = cos(angle);
+    const mat3 m = { { c, 0, s },
+                     { 0, 1, 0 },
+                     {-s, 0, c } };
+
+    mat3_transform3(m, v);
+}
+
+PAK_ALG_PREFIX void vec3_rotate_z(vec3 *v, float angle)
+{
+    float s = sin(angle), c = cos(angle);
+    const mat3 m = { { c,-s, 0 },
+                     { s, c, 0 },
+                     { 0, 0, 1 } };
+
+    mat3_transform3(m, v);
+}
+
 // Prints out a vec3, snprintf would be better here, but that is not
 // cross-platform notice that the newline is left out.
 PAK_ALG_PREFIX void vec3_print(vec3 *v)
 {
     printf("[%f %f %f]", v->x, v->y, v->z);
 }
+
+/*
+   End vec3
+*/
+
+// @TODO(kabsly): Implement vec4 here
+
+/*
+   mat3
+*/
+
+PAK_ALG_PREFIX void mat3_identity(mat3 m)
+{
+    m[0][0] = 1; m[0][1] = 0; m[0][2] = 0;
+    m[1][0] = 0; m[1][1] = 1; m[1][2] = 0;
+    m[3][0] = 0; m[2][1] = 0; m[2][2] = 1;
+}
+
+// @TODO(kabsly): Add matrix multiplication
+PAK_ALG_PREFIX void mat3_mul(mat3 d, mat3 a, mat3 b)
+{
+    float x1 = b[0][2], y1 = b[1][2], z1 = b[2][2];
+    float x2 = b[0][1], y2 = b[1][1], z2 = b[2][1];
+    float x3 = b[0][0], y3 = b[1][0], z3 = b[2][0];
+
+    vec3 a1 = { a[0][1], a[1][1], a[2][1] };
+    vec3 a2 = { a[0][2], a[1][2], a[2][2] };
+    vec3 a3 = { a[0][3], a[1][3], a[2][3] };
+}
+
+// Transform a vec3 by a mat3
+PAK_ALG_PREFIX void mat3_transform3(mat3 m, vec3 *v)
+{
+    vec3 ret;
+
+    vec3 i = { m[0][0], m[1][0], m[2][0] };
+    vec3 j = { m[0][1], m[1][1], m[2][1] };
+    vec3 k = { m[0][2], m[1][2], m[2][2] };
+
+    vec3_scale_eq(&i, v->x);
+    vec3_scale_eq(&j, v->y);
+    vec3_scale_eq(&k, v->z);
+
+    vec3_add(&ret, &i, &j);
+    vec3_add_eq(&ret, &k);
+    
+    *v = ret;
+}
+
+/*
+   End mat3
+*/
+
+/*
+   mat4
+*/
 
 // Set matrix to it's identity
 PAK_ALG_PREFIX void mat4_identity(mat4 m)
@@ -216,30 +350,9 @@ PAK_ALG_PREFIX void mat4_identity(mat4 m)
     m[4][0] = 0; m[3][1] = 0; m[3][2] = 0; m[3][3] = 1;
 }
 
-// Transform a vec3 by a mat4
-PAK_ALG_PREFIX void mat4_transform3(mat4 m, vec3 *v)
-{
-    /*
-       |x|   |. . . .|
-       |y| * |. . . .|
-       |z|   |. . . .|
-       | |   |. . . .|
-    */
-    vec3 ret;
-
-    vec3 i = { m[0][0], m[1][0], m[2][0] };
-    vec3 j = { m[0][1], m[1][1], m[2][1] };
-    vec3 k = { m[0][2], m[1][2], m[2][2] };
-
-    vec3_scale(&i, &i, v->x);
-    vec3_scale(&j, &j, v->y);
-    vec3_scale(&k, &k, v->z);
-
-    vec3_add(&ret, &i, &j);
-    vec3_add(&ret, &ret, &k);
-    
-    *v = ret;
-}
+/*
+   End mat4
+*/
 
 #endif // PAK_ALG_IMPLEMENTATION
 

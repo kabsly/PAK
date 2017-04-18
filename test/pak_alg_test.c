@@ -50,25 +50,38 @@ char *pak_alg_vec3_test()
     return NULL;
 }
 
-char *pak_alg_mat4_test()
+char *pak_alg_mat3_test()
 {
     vec3 v = { 2, 2, 1 };
-    mat4 m = {{1, 0, 0, 1},
-              {0,-1, 0, 0},
-              {0, 4, 5, 4},
-              {5, 6, 2, 6}};
+    mat3 m = {{-1, 0, 0 },
+              { 0, 1, 0 },
+              { 0, 0, 0 }};
 
-    mat4_transform3(m, &v);
+    mat3_transform3(m, &v);
+    printf("vec3 after tranform: "); vec3_print(&v); puts(".");
 
-    printf("vec3 after tranform: "); vec3_print(&v); puts("\n");
+    vec3_rotate_x(&v, 90);
+    printf("vec3 after rotation (x, 90): "); vec3_print(&v); puts(".");
+
+    vec3_rotate_y(&v, 90);
+    printf("vec3 after rotation (y, 90): "); vec3_print(&v); puts(".");
+
+    vec3_rotate_z(&v, 90);
+    printf("vec3 after rotation (z, 90): "); vec3_print(&v); puts(".");
     
     return NULL;
 }
 
 char *pak_alg_test()
 {
+    // Add newlines to seperate linear algebra data from
+    // other unit tests
+    puts("");
+
     pak_test_run(pak_alg_vec3_test);
-    pak_test_run(pak_alg_mat4_test);
+    pak_test_run(pak_alg_mat3_test);
+
+    puts("");
 
     return NULL;
 }
