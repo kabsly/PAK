@@ -110,6 +110,8 @@ PAK_ALG_PREFIX void vec4_scale_eq(vec4 *d, float s);
 
 PAK_ALG_PREFIX void mat3_identity(mat3 m);
 PAK_ALG_PREFIX void mat3_mul(mat3 d, mat3 a, mat3 b);
+PAK_ALG_PREFIX void mat3_mul_eq(mat3 d, mat3 m);
+PAK_ALG_PREFIX void mat3_rotate_z(mat3 d, float angle);
 PAK_ALG_PREFIX void mat3_transform3(mat3 m, vec3 *v);
 
 PAK_ALG_PREFIX void mat4_transform3(mat4 m, vec3 *v);
@@ -312,6 +314,21 @@ PAK_ALG_PREFIX void mat3_mul(mat3 d, mat3 a, mat3 b)
     vec3 a1 = { a[0][1], a[1][1], a[2][1] };
     vec3 a2 = { a[0][2], a[1][2], a[2][2] };
     vec3 a3 = { a[0][3], a[1][3], a[2][3] };
+}
+
+PAK_ALG_PREFIX void mat3_mul_eq(mat3 d, mat3 m)
+{
+    mat3_mul(d, d, m);
+}
+
+PAK_ALG_PREFIX void mat3_rotate_z(mat3 d, float angle)
+{
+    float s = sin(angle), c = cos(angle);
+    const mat3 m = { { c,-s, 0 },
+                     { s, c, 0 },
+                     { 0, 0, 1 } };
+
+    mat3_mul_eq(d, m);
 }
 
 // Transform a vec3 by a mat3
