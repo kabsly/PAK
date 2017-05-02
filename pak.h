@@ -103,7 +103,6 @@ extern "C" {
 #endif
 
 #ifdef PAK_VERBOSE
-#   include <stdio.h> // fprintf
 #   define pak_assert(C) if (!(C)) { fprintf(stderr, "PAK Assertion fail (%s:%d) %s.\n",\
         __FILE__, __LINE__, #C); goto fail; }
 #   define pak_debug(M, ...) fprintf(stderr, "DEBUG (%s:%s:%d): " M "\n",\
@@ -123,6 +122,7 @@ extern "C" {
 #endif
 
 #ifdef PAK_IMPLEMENTATION
+#   include <stdio.h>
 #   include <string.h> // memcpy
 #   include <stdarg.h>
 #else
@@ -731,12 +731,154 @@ fail:
 */
 
 /*
-   @TODO(kabsly): Implement hashtable library here, decide between linear probing
-   or seperate chaining.
+    The PAK Dictionary (hashmap) Library
+
+    A generic hashmap implementation, that uses seperate chaining and the FNV1A
+    hash function by default.
+*/
+
+#ifndef PAK_NO_DICT
+
+#if defined PAK_NO_VEC
+#   error "PAK Dictionaries require vectors to be used."
+#endif
+
+// Function pointers for hashing and memory management
+typedef unsigned long (*pak__dict_hash) (const char *);
+typedef void          (*pak__dict_gc)   (void *);
+
+// Key Value Pairs
+typedef struct {
+    char *key;
+    void *val;
+    struct pak_dict_node *next;
+} pak_dict_node;
+
+// Define a PAK Vector which will serve as our buckets
+#ifdef PAK_IMPLEMENTATION
+    PAK_INIT_VEC(pak__buckets, pak_dict_node*, NULL)
+#else // Avoid dual typedefs
+    PAK_INIT_VEC_PROTOTYPES(pak__buckets, pak_dict_node*)
+#endif
+
+typedef struct {
+    size_t elem_sz;
+    pak__buckets buckets;
+    pak__dict_gc gc;
+    pak__dict_hash hash;
+} pak_dict;
+
+// Hashing algorithms
+PAK_PREFIX unsigned long pak_dict_FNV1A(const char *data);
+
+// Function declarations, with wrapper macros
+
+PAK_PREFIX pak_dict *pak__dict_new(int max, size_t elem_sz);
+#define pak_dict_new(T, M) pak__dict_new(M, sizeof(T))
+
+PAK_PREFIX int pak__dict_add(pak_dict *dict, char *key, size_t sz, void *val);
+#define pak_dict_add(D, K, V) pak__dict_add(D, K, sizeof(V), (void *) &(V))
+
+// Begin PAK Dictionary implementation
+#ifdef PAK_IMPLEMENTATION
+
+// Fowler-Noll-Vo hash function
+PAK_PREFIX unsigned long pak_dict_FNV1A(const char *data)
+{
+    static const unsigned long FNV_PRIME  = 16777619;
+    static const unsigned long FNV_OFFSET = 2166136261;
+
+    unsigned long hash = FNV_OFFSET;
+
+    unsigned long i;
+    for (i = 0; i < strlen(data); i++) {
+        hash ^= data[i];
+        hash *= FNV_PRIME;
+    }
+
+    return hash;
+}
+
+PAK_PREFIX pak_dict *pak__dict_new(int max, size_t elem_sz)
+{
+    pak_dict *dict = NULL;
+    pak__buckets buck = NULL;
+
+    dict = pak_malloc(sizeof(*dict));
+    pak_assert(dict);
+
+    buck = pak__buckets_new(max);
+    pak_assert(buck);
+
+    dict->elem_sz = elem_sz;
+    dict->buckets = buck;
+    dict->gc = NULL;
+    // Use FNV1A hash by default
+    dict->hash = pak_dict_FNV1A;
+
+    pak_debug("Created new PAK dictinary: %p.", dict);
+
+    return dict;
+
+fail:
+    if (dict)
+        pak_free(dict);
+
+    return NULL;
+}
+
+PAK_PREFIX pak_dict_node *pak__dict_node_new(char *key, void *val)
+{
+    pak_dict_node *node = pak_malloc(sizeof(*node));
+    pak_assert(node);
+
+    node->key = strdup(key);
+    pak_assert(node->key);
+
+    node->val = val;
+    node->next = NULL;
+
+    return node;
+
+fail:
+    if (node)
+        pak_free(node);
+
+    return NULL;
+}
+
+PAK_PREFIX int pak__dict_add(pak_dict *dict, char *key, size_t sz, void *p)
+{
+    void *val = NULL;
+
+    pak_assert(sz == dict->elem_sz);
+
+    val = pak_malloc(sz);
+    pak_assert(val);
+
+    memcpy(val, p, sz);
+
+    int loc = dict->hash(key) % pak__buckets_max(dict->buckets);
+    pak_dict_node *next = dict->buckets[loc];
+
+    return 0;
+
+fail:
+    if (val)
+        pak_free(val);
+
+    return -1;
+}
+
+#endif // PAK_IMPLEMENTATION
+#endif // PAK_NO_DICT
+
+/*
+   End of PAK Dictionary Library
 */
 
 /*
-   The PAK I/O library
+   The PAK I/O Library
 
    This library contains various utility functions for managing file input and
    output. You can do things such as opening text files as strings with a single
@@ -746,8 +888,9 @@ fail:
 #ifndef PAK_NO_IO
 
 PAK_PREFIX char *pak_io_read_file(const char *path);
-
 PAK_PREFIX int pak_io_append_file(const char *path, const char *s, ...);
+PAK_PREFIX int *pak_io_search_str(const char *to_search, const char *pattern);
+PAK_PREFIX int *pak_io_search_file(const char *path, const char *pattern);
 
 #ifdef PAK_IMPLEMENTATION
 
@@ -803,6 +946,50 @@ PAK_PREFIX int pak_io_append_file(const char *path, const char *s, ...)
 
 fail:
     return -1;
+}
+
+PAK_PREFIX int *pak_io_search_str(const char *to_search, const char *pattern)
+{
+    int slen = strlen(to_search);
+    int plen = strlen(pattern);
+    int i, j;
+
+    int *finds = pak_vec_new(int, 1);
+    pak_assert(finds);
+
+    for (i = 0; i < slen; i++)
+        if (pattern[0] == to_search[i])
+            for (j = 0; j < plen && j + i < slen; j++) {
+                if (pattern[j] != to_search[i + j])
+                    break;
+                else if (j == plen - 1)
+                    pak_vec_push(&finds, i);
+            }
+
+    return finds;
+
+fail:
+    if (finds)
+        pak_vec_free(&finds);
+
+    return NULL;
+}
+
+PAK_PREFIX int *pak_io_search_file(const char *path, const char *pattern)
+{
+    char *file = pak_io_read_file(path);
+    pak_assert(file);
+
+    int *finds = pak_io_search_str(file, pattern);
+    pak_assert(finds);
+
+    return finds;
+
+fail:
+    if (file)
+        pak_free(file);
+
+    return NULL;
 }
 
 /*
