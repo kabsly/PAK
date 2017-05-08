@@ -107,11 +107,8 @@ extern "C" {
 #ifdef PAK_VERBOSE
 #   define pak_assert(C) if (!(C)) { fprintf(stderr, "PAK Assertion fail (%s:%d) %s.\n",\
         __FILE__, __LINE__, #C); goto fail; }
-#   define pak_debug(M, ...) fprintf(stderr, "DEBUG (%s:%s:%d): " M "\n",\
-        __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
 #   define pak_assert(C) if (!(C)) goto fail;
-#   define pak_debug(M, ...) ((void) 0)
 #endif
 
 // Malloc wrapper
@@ -620,11 +617,6 @@ PAK_PREFIX void *pak__arr_new(size_t sz, int max)
     h->sig = PAK_ARR_SIGNATURE;
     h->gc = NULL;
 
-    // The "zu" sequence is not supported on windows
-#ifndef _WIN32
-    pak_debug("Created array %p (Max: %d, Element size: %zu).", h, max, sz);
-#endif
-
     return arr;
 
 fail:
@@ -655,8 +647,6 @@ PAK_PREFIX void pak__arr_free(void **pp)
     while(h->gc && --h->count > 0)
         h->gc(pak_arr_notype_last(arr));
 
-    pak_debug("Free'd PAK Array %p.", h);
-
     pak_free(h);
     *pp = NULL;
 
@@ -671,8 +661,6 @@ PAK_PREFIX int pak__arr_resize(void **pp, int max)
     pak__arr *h = pak_arr_header(*pp);
     pak_assert(h->sig == PAK_ARR_SIGNATURE);
 
-    pak_debug("Resizing array %p (%d -> %d).", h, h->max, max);
-
     if (max < h->count) {
 
         // Collect the garbage
@@ -682,8 +670,6 @@ PAK_PREFIX int pak__arr_resize(void **pp, int max)
             h->gc(pak_arr_notype_last(*pp));
             i++;
         }
-
-        pak_debug("Called garbage collector on array %p, %d times.", h, i);
 
         h->count = max;
     }
@@ -863,8 +849,6 @@ PAK_PREFIX pak_dict *pak__dict_new(int max, size_t elem_sz)
     dict->gc = NULL;
     // Use FNV1A hash by default
     dict->hash = pak_dict_FNV1A;
-
-    pak_debug("Created new PAK dictinary: %p.", dict);
 
     return dict;
 
