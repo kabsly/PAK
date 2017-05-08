@@ -12,11 +12,13 @@
 
         Here is a list of the libraries found in PAK:
 
+            - PAK Compare, generic sorting macros
             - PAK Lists, generic linked list library
-            - PAK Vectors, generic dynamic array library
+            - PAK Arrays, generic dynamic array library
+            - PAK I/O, file input and output library
 
-        Libraries can be disabled, for example just define PAK_NO_VEC in order
-        to disable PAK Vectors from being used.
+        Libraries can be disabled, for example just define PAK_NO_ARR in order
+        to disable PAK arrays from being used.
 
         You must define PAK_IMPLEMENTATION before including this header file to define
         all of the functions, otherwise you'll just get the prototypes.
@@ -28,16 +30,16 @@
         use the library effectively. PAK uses C macros in order to improvise
         C++ style templates. Consider the following code:
 
-            // Define a vector type called "IntVector" which holds int values
-            PAK_INIT_VEC(IntVector, int, NULL);
+            // Define a array type called "IntArray" which holds int values
+            PAK_INIT_ARR(IntArray, int, NULL);
 
             int main()
             {
-                IntVector vec = IntVector_new(1024);
+                IntArray vec = IntArray_new(1024);
 
                 int i;
                 for (i = 0; i < 2048; i++)
-                    IntVector_push(&vec, i);
+                    IntArray_push(&vec, i);
             }
 
         This is a dirty solution, but it is the only way to accomplish generics in C.
@@ -128,6 +130,36 @@ extern "C" {
 #else
 #   include <stddef.h> // size_t
 #endif
+
+/*
+   The PAK Comparision Library
+
+   Generic comparison functions all macroed up. Especially made for use in
+   C standard sorting functions
+*/
+
+#define PAK_INIT_COMPARE(NAME, TYPE, OP)                   \
+    int NAME(const void *a, const void *b)                 \
+    {                                                      \
+        return -(*(const TYPE *) a OP *(const TYPE *) b);  \
+    }
+
+#define PAK_INIT_COMPARE_PROTOTYPE(NAME)    \
+    extern int NAME(const void *a, const void *b);
+
+#ifdef PAK_IMPLEMENTATION
+    PAK_INIT_COMPARE(pak_icmp_des, int,     +)
+    PAK_INIT_COMPARE(pak_fcmp_des, float,   +)
+    PAK_INIT_COMPARE(pak_dcmp_des, double,  +)
+#else
+    PAK_INIT_COMPARE_PROTOTYPE(pak_icmp_des)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_fcmp_des)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_dcmp_des)
+#endif
+
+/*
+   End of PAK comparision library
+*/
 
 /*
    The PAK List library
@@ -424,11 +456,11 @@ fail:
 */
 
 /*
-    The PAK Vector library
+    The PAK Array library
 
-    There are two types of vectors, "raw" ones that use void pointer, which is
+    There are two types of arrays, "raw" ones that use void pointer, which is
     better suited for small projects, and "typesafe" versions which are made
-    using the PAK_INIT_VEC macro behaving like a C++ template.
+    using the PAK_INIT_ARR macro behaving like a C++ template.
 
     Features:
         - Optional type-safety
@@ -441,106 +473,106 @@ fail:
 
     Example:
 
-        int *vec = pak_vec_new(int, 1024);
-        assert(vec);
+        int *arr = pak_arr_new(int, 1024);
+        assert(arr);
 
         int i;
         for (i = 0; i < 1000; i++)
-            pak_vec_push(&vec, i);
+            pak_arr_push(&arr, i);
 
         for (i = 0; i < 1000; i++)
-            pak_vec_pop(&vec);
+            pak_arr_pop(&arr);
 */
 
-#ifndef PAK_NO_VEC
+#ifndef PAK_NO_ARR
 
 // Function pointer to a free elements when doing resizes, pops, etc
 // (I call it "garbage collection", because using "garbage collection" and "C"
 // in the same sentence gets people's attention.)
-typedef void (*pak__vec_gc)(void *);
+typedef void (*pak__arr_gc)(void *);
 
-// A unique signature kept inside of the vector metadata
-#ifndef PAK_VEC_SIGNATURE
-#   define PAK_VEC_SIGNATURE 0x5F3C2A
+// A unique signature kept inside of the array metadata
+#ifndef PAK_ARR_SIGNATURE
+#   define PAK_ARR_SIGNATURE 0x5F3C2A
 #endif
 
-// Header which contains the vector metadata
+// Header which contains the array metadata
 typedef struct {
     int count;
     int max;
     int rate;
     size_t elem_sz;
     unsigned int sig;
-    pak__vec_gc gc;
-} pak__vec;
+    pak__arr_gc gc;
+} pak__arr;
 
 // The header is always the first element at the array, but we increment the
 // pointer in order to hide it from the user
-#define pak_vec_header(V)   (((pak__vec *) (V) - 1))
+#define pak_arr_header(V)   (((pak__arr *) (V) - 1))
 
 // Utility macros
-#define pak_vec_count(V)        (pak_vec_header((V))->count)
-#define pak_vec_max(V)          (pak_vec_header((V))->max)
-#define pak_vec_elem_sz(V)      (pak_vec_header((V))->elem_sz)
-#define pak_vec_isvalid(V)      (pak_vec_header((V))->sig == PAK_VEC_SIGNATURE)
-#define pak_vec_foreach(I, V)   for (I = 0; I < pak_vec_count(V); I++)
-#define pak_vec_last(V)         V[pak_vec_count(V) - 1]
-#define pak_vec_sort(V, CMP)    qsort((void *) (V), pak_vec_count(V), pak_vec_elem_sz(V), CMP);
+#define pak_arr_count(V)        (pak_arr_header((V))->count)
+#define pak_arr_max(V)          (pak_arr_header((V))->max)
+#define pak_arr_elem_sz(V)      (pak_arr_header((V))->elem_sz)
+#define pak_arr_isvalid(V)      (pak_arr_header((V))->sig == PAK_ARR_SIGNATURE)
+#define pak_arr_foreach(I, V)   for (I = 0; I < pak_arr_count(V); I++)
+#define pak_arr_last(V)         V[pak_arr_count(V) - 1]
+#define pak_arr_sort(V, CMP)    qsort((void *) (V), pak_arr_count(V), pak_arr_elem_sz(V), CMP);
 
-// Get values from the vector, without knowing the type, mostly for internal
+// Get values from the array , without knowing the type, mostly for internal
 // use, but we'll make it available to the user
-#define pak_vec_notype_get(V, I)    (void *)((char *) (V) + ((I) * pak_vec_elem_sz(V)))
-#define pak_vec_notype_last(V)      pak_vec_notype_get((V), pak_vec_count(V) - 1)
+#define pak_arr_notype_get(V, I)    (void *)((char *) (V) + ((I) * pak_arr_elem_sz(V)))
+#define pak_arr_notype_last(V)      pak_arr_notype_get((V), pak_arr_count(V) - 1)
 
-PAK_PREFIX void *pak__vec_new(size_t sz, int max);
-#define pak_vec_new(T, M) (T *) pak__vec_new(sizeof(T), (M))
+PAK_PREFIX void *pak__arr_new(size_t sz, int max);
+#define pak_arr_new(T, M) (T *) pak__arr_new(sizeof(T), (M))
 
-PAK_PREFIX void *pak__vec_new_gc(size_t sz, int max, pak__vec_gc gc);
-#define pak_vec_new_gc(T, M, F) (T *) pak__vec_new_gc(sizeof(T), (M), (F))
+PAK_PREFIX void *pak__arr_new_gc(size_t sz, int max, pak__arr_gc gc);
+#define pak_arr_new_gc(T, M, F) (T *) pak__arr_new_gc(sizeof(T), (M), (F))
 
-PAK_PREFIX void pak__vec_free(void **pp);
-#define pak_vec_free(PP) pak__vec_free((void **) (PP))
+PAK_PREFIX void pak__arr_free(void **pp);
+#define pak_arr_free(PP) pak__arr_free((void **) (PP))
 
-PAK_PREFIX int pak__vec_resize(void **pp, int max);
-#define pak_vec_resize(PP, M) pak__vec_resize((void **) (PP), (M))
+PAK_PREFIX int pak__arr_resize(void **pp, int max);
+#define pak_arr_resize(PP, M) pak__arr_resize((void **) (PP), (M))
 
-PAK_PREFIX int pak__vec_expand(void **pp);
-#define pak_vec_expand(PP) pak__vec_expand((void **) (PP))
+PAK_PREFIX int pak__arr_expand(void **pp);
+#define pak_arr_expand(PP) pak__arr_expand((void **) (PP))
 
-PAK_PREFIX int pak__vec_contract(void **pp);
-#define pak_vec_contract(PP) pak__vec_contract((void **) (PP))
+PAK_PREFIX int pak__arr_contract(void **pp);
+#define pak_arr_contract(PP) pak__arr_contract((void **) (PP))
 
-PAK_PREFIX int pak__vec_push(void **pp, size_t sz, void *e);
-#define pak_vec_push(V, E) pak__vec_push((void **) (V), sizeof(E), (void *) &(E))
+PAK_PREFIX int pak__arr_push(void **pp, size_t sz, void *e);
+#define pak_arr_push(V, E) pak__arr_push((void **) (V), sizeof(E), (void *) &(E))
 
-PAK_PREFIX int pak__vec_pop(void **pp);
-#define pak_vec_pop(PP) pak__vec_pop((void **) (PP))
+PAK_PREFIX int pak__arr_pop(void **pp);
+#define pak_arr_pop(PP) pak__arr_pop((void **) (PP))
 
-// Create typesafe wrapper functions for the vector implementation,
+// Create typesafe wrapper functions for the array implementation,
 // using a "ghetto" C++ style template.
-#define PAK_INIT_VEC(NAME, TYPE, GC)                                                                \
+#define PAK_INIT_ARR(NAME, TYPE, GC)                                                                \
     typedef TYPE* NAME;                                                                             \
                                                                                                     \
-    PAK_PREFIX int NAME##_count(NAME vec)           { return pak_vec_count(vec); }                  \
-    PAK_PREFIX int NAME##_max(NAME vec)             { return pak_vec_max(vec); }                    \
-    PAK_PREFIX size_t NAME##_elem_sz(NAME vec)      { return pak_vec_elem_sz(vec); }                \
-    PAK_PREFIX int NAME##_isvalid(NAME vec)         { return pak_vec_isvalid(vec); }                \
-    PAK_PREFIX NAME NAME##_new(int max)             { return pak_vec_new_gc(TYPE, max, GC); }       \
-    PAK_PREFIX void NAME##_free(NAME *pp)           { pak_vec_free(pp); }                           \
-    PAK_PREFIX int NAME##_resize(NAME *pp, int max) { return pak_vec_resize(pp, max); }             \
-    PAK_PREFIX int NAME##_expand(NAME *pp)          { return pak_vec_expand(pp); }                  \
-    PAK_PREFIX int NAME##_contract(NAME *pp)        { return pak_vec_contract(pp); }                \
-    PAK_PREFIX int NAME##_push(NAME *pp, TYPE val)  { return pak_vec_push(pp, val); }               \
-    PAK_PREFIX int NAME##_pop(NAME *pp)             { return pak_vec_pop(pp); }
+    PAK_PREFIX int NAME##_count(NAME arr)           { return pak_arr_count(arr); }                  \
+    PAK_PREFIX int NAME##_max(NAME arr)             { return pak_arr_max(arr); }                    \
+    PAK_PREFIX size_t NAME##_elem_sz(NAME arr)      { return pak_arr_elem_sz(arr); }                \
+    PAK_PREFIX int NAME##_isvalid(NAME arr)         { return pak_arr_isvalid(arr); }                \
+    PAK_PREFIX NAME NAME##_new(int max)             { return pak_arr_new_gc(TYPE, max, GC); }       \
+    PAK_PREFIX void NAME##_free(NAME *pp)           { pak_arr_free(pp); }                           \
+    PAK_PREFIX int NAME##_resize(NAME *pp, int max) { return pak_arr_resize(pp, max); }             \
+    PAK_PREFIX int NAME##_expand(NAME *pp)          { return pak_arr_expand(pp); }                  \
+    PAK_PREFIX int NAME##_contract(NAME *pp)        { return pak_arr_contract(pp); }                \
+    PAK_PREFIX int NAME##_push(NAME *pp, TYPE val)  { return pak_arr_push(pp, val); }               \
+    PAK_PREFIX int NAME##_pop(NAME *pp)             { return pak_arr_pop(pp); }
 
 // For header files
-#define PAK_INIT_VEC_PROTOTYPES(NAME, TYPE)         \
+#define PAK_INIT_ARR_PROTOTYPES(NAME, TYPE)         \
     typedef TYPE* NAME;                             \
                                                     \
-    extern int NAME##_count(NAME vec);              \
-    extern int NAME##_max(NAME vec);                \
-    extern size_t NAME##_elem_sz(NAME vec);         \
-    extern int NAME##_isvalid(NAME vec);            \
+    extern int NAME##_count(NAME arr);              \
+    extern int NAME##_max(NAME arr);                \
+    extern size_t NAME##_elem_sz(NAME arr);         \
+    extern int NAME##_isvalid(NAME arr);            \
     extern NAME NAME##_new(int max);                \
     extern void NAME##_free(NAME *pp);              \
     extern int NAME##_resize(NAME *pp, int max);    \
@@ -549,65 +581,81 @@ PAK_PREFIX int pak__vec_pop(void **pp);
     extern int NAME##_push(NAME *pp, TYPE val);     \
     extern int NAME##_pop(NAME *pp);
 
+// Define commmon types for PAK arr
+#ifdef PAK_IMPLEMENTATION
+    PAK_INIT_ARR(pak_iarr, int,     NULL);
+    PAK_INIT_ARR(pak_darr, double,  NULL);
+    PAK_INIT_ARR(pak_farr, float,   NULL);
+    PAK_INIT_ARR(pak_carr, char,    NULL);
+#else
+    PAK_INIT_ARR_PROTOTYPES(pak_iarr, int);
+    PAK_INIT_ARR_PROTOTYPES(pak_darr, double);
+    PAK_INIT_ARR_PROTOTYPES(pak_farr, float);
+    PAK_INIT_ARR_PROTOTYPES(pak_carr, char);
+#endif
+
+#define pak_iarr_foreach pak_arr_foreach
+#define pak_darr_foreach pak_arr_foreach
+#define pak_farr_foreach pak_arr_foreach
+#define pak_carr_foreach pak_arr_foreach
+
 // Begin function definitions
 #ifdef PAK_IMPLEMENTATION
 
-PAK_PREFIX void *pak__vec_new(size_t sz, int max)
+PAK_PREFIX void *pak__arr_new(size_t sz, int max)
 {
     pak_assert(max > 0);
 
-    pak__vec *vec = (pak__vec *)pak_malloc(sizeof(*vec) + (sz * max));
-    pak_assert(vec);
+    pak__arr *arr = (pak__arr *)pak_malloc(sizeof(*arr) + (sz * max));
+    pak_assert(arr);
 
-    vec++;
+    arr++;
 
-    pak__vec *h = pak_vec_header(vec);
+    pak__arr *h = pak_arr_header(arr);
 
     h->count = 0;
     h->max = max;
     h->rate = max;
     h->elem_sz = sz;
-    h->sig = PAK_VEC_SIGNATURE;
+    h->sig = PAK_ARR_SIGNATURE;
     h->gc = NULL;
 
     // The "zu" sequence is not supported on windows
 #ifndef _WIN32
-    pak_debug("Created vector %p (Max: %d, Element size: %zu).", h, max, sz);
+    pak_debug("Created array %p (Max: %d, Element size: %zu).", h, max, sz);
 #endif
 
-    return vec;
+    return arr;
 
 fail:
     return NULL;
 }
 
-PAK_PREFIX void *pak__vec_new_gc(size_t sz, int max, pak__vec_gc gc)
+PAK_PREFIX void *pak__arr_new_gc(size_t sz, int max, pak__arr_gc gc)
 {
-    void *vec = pak__vec_new(sz, max);
-    pak_assert(vec);
+    void *arr = pak__arr_new(sz, max);
+    pak_assert(arr);
 
-    pak_vec_header(vec)->gc = gc;
+    pak_arr_header(arr)->gc = gc;
 
-    return vec;
+    return arr;
 
 fail:
     return NULL;
 }
 
-PAK_PREFIX void pak__vec_free(void **pp)
+PAK_PREFIX void pak__arr_free(void **pp)
 {
-    void *vec = *pp;
-    pak_assert(vec); // Double free?
+    void *arr = *pp;
+    pak_assert(arr); // Double free?
 
-    pak__vec *h = pak_vec_header(vec);
-    pak_assert(h->sig == PAK_VEC_SIGNATURE);
+    pak__arr *h = pak_arr_header(arr);
+    pak_assert(h->sig == PAK_ARR_SIGNATURE);
 
-    while(h->gc && h->count > 0) {
-        h->gc(pak_vec_notype_last(vec));
-        h->count--;
-    }
+    while(h->gc && --h->count > 0)
+        h->gc(pak_arr_notype_last(arr));
 
-    pak_debug("Free'd PAK Vector %p.", h);
+    pak_debug("Free'd PAK Array %p.", h);
 
     pak_free(h);
     *pp = NULL;
@@ -616,14 +664,14 @@ fail:
     return;
 }
 
-PAK_PREFIX int pak__vec_resize(void **pp, int max)
+PAK_PREFIX int pak__arr_resize(void **pp, int max)
 {
     pak_assert(max > 0);
 
-    pak__vec *h = pak_vec_header(*pp);
-    pak_assert(h->sig == PAK_VEC_SIGNATURE);
+    pak__arr *h = pak_arr_header(*pp);
+    pak_assert(h->sig == PAK_ARR_SIGNATURE);
 
-    pak_debug("Resizing vector %p (%d -> %d).", h, h->max, max);
+    pak_debug("Resizing array %p (%d -> %d).", h, h->max, max);
 
     if (max < h->count) {
 
@@ -631,23 +679,23 @@ PAK_PREFIX int pak__vec_resize(void **pp, int max)
 
         int i = 0;
         while (h->gc && --h->count > max) {
-            h->gc(pak_vec_notype_last(*pp));
+            h->gc(pak_arr_notype_last(*pp));
             i++;
         }
 
-        pak_debug("Called garbage collector on vector %p, %d times.", h, i);
+        pak_debug("Called garbage collector on array %p, %d times.", h, i);
 
         h->count = max;
     }
 
     h->max = max;
 
-    pak__vec *vec = (pak__vec *)pak_realloc(h, sizeof(*vec) + (h->elem_sz * max));
-    pak_assert(vec);
+    pak__arr *arr = (pak__arr *)pak_realloc(h, sizeof(*arr) + (h->elem_sz * max));
+    pak_assert(arr);
 
-    vec++;
+    arr++;
 
-    *pp = vec;
+    *pp = arr;
 
     return 0;
 
@@ -655,44 +703,44 @@ fail:
     return -1;
 }
 
-PAK_PREFIX int pak__vec_expand(void **pp)
+PAK_PREFIX int pak__arr_expand(void **pp)
 {
-    pak__vec *h = pak_vec_header(*pp);
-    pak_assert(h->sig == PAK_VEC_SIGNATURE);
+    pak__arr *h = pak_arr_header(*pp);
+    pak_assert(h->sig == PAK_ARR_SIGNATURE);
 
-    return pak__vec_resize(pp, h->max + h->rate);
+    return pak__arr_resize(pp, h->max + h->rate);
 
 fail:
     return -1;
 }
 
-PAK_PREFIX int pak__vec_contract(void **pp)
+PAK_PREFIX int pak__arr_contract(void **pp)
 {
-    pak__vec *h = pak_vec_header(*pp);
-    pak_assert(h->sig == PAK_VEC_SIGNATURE);
+    pak__arr *h = pak_arr_header(*pp);
+    pak_assert(h->sig == PAK_ARR_SIGNATURE);
 
-    return pak__vec_resize(pp, h->max - h->rate);
+    return pak__arr_resize(pp, h->max - h->rate);
 
 fail:
     return -1;
 }
 
-PAK_PREFIX int pak__vec_push(void **pp, size_t sz, void *e)
+PAK_PREFIX int pak__arr_push(void **pp, size_t sz, void *e)
 {
-    pak__vec *vec = *(pak__vec **) pp;
-    pak__vec *h = pak_vec_header(vec);
+    pak__arr *arr = *(pak__arr **) pp;
+    pak__arr *h = pak_arr_header(arr);
 
-    pak_assert(h->sig == PAK_VEC_SIGNATURE);
+    pak_assert(h->sig == PAK_ARR_SIGNATURE);
     pak_assert(sz == h->elem_sz)
 
     if (h->count >= h->max) {
-        pak_assert(pak_vec_expand(pp) == 0);
-        h = pak_vec_header(vec);
+        pak_assert(pak_arr_expand(pp) == 0);
+        h = pak_arr_header(arr);
     }
 
     h->count++;
 
-    memcpy(pak_vec_notype_last(vec), e, sz);
+    memcpy(pak_arr_notype_last(arr), e, sz);
 
     return 0;
 
@@ -700,20 +748,20 @@ fail:
     return -1;
 }
 
-PAK_PREFIX int pak__vec_pop(void **pp)
+PAK_PREFIX int pak__arr_pop(void **pp)
 {
-    pak__vec *h = pak_vec_header(*pp);
-    pak_assert(h->sig == PAK_VEC_SIGNATURE);
+    pak__arr *h = pak_arr_header(*pp);
+    pak_assert(h->sig == PAK_ARR_SIGNATURE);
 
     if (h->count > 0) {
         if (h->gc)
-            h->gc(pak_vec_notype_last(*pp));
+            h->gc(pak_arr_notype_last(*pp));
 
         h->count--;
 
         if (h->count < h->max - h->rate) {
-            pak__vec_contract(pp);
-            h = pak_vec_header(*pp);
+            pak__arr_contract(pp);
+            h = pak_arr_header(*pp);
         }
     }
 
@@ -724,10 +772,10 @@ fail:
 }
 
 #endif // PAK_IMPLEMENTATION
-#endif // PAK_NO_VEC
+#endif // PAK_NO_ARR
 
 /*
-   End of PAK Vector Library
+   End of PAK Array Library
 */
 
 /*
@@ -739,8 +787,8 @@ fail:
 
 #ifndef PAK_NO_DICT
 
-#if defined PAK_NO_VEC
-#   error "PAK Dictionaries require vectors to be used."
+#if defined PAK_NO_ARR
+#   error "PAK Dictionaries require array to be used."
 #endif
 
 // Function pointers for hashing and memory management
@@ -754,11 +802,11 @@ typedef struct {
     struct pak_dict_node *next;
 } pak_dict_node;
 
-// Define a PAK Vector which will serve as our buckets
+// Define a PAK Array which will serve as our buckets
 #ifdef PAK_IMPLEMENTATION
-    PAK_INIT_VEC(pak__buckets, pak_dict_node*, NULL)
+    PAK_INIT_ARR(pak__buckets, pak_dict_node*, NULL)
 #else // Avoid dual typedefs
-    PAK_INIT_VEC_PROTOTYPES(pak__buckets, pak_dict_node*)
+    PAK_INIT_ARR_PROTOTYPES(pak__buckets, pak_dict_node*)
 #endif
 
 typedef struct {
@@ -804,7 +852,7 @@ PAK_PREFIX pak_dict *pak__dict_new(int max, size_t elem_sz)
     pak_dict *dict = NULL;
     pak__buckets buck = NULL;
 
-    dict = pak_malloc(sizeof(*dict));
+    dict = (pak_dict *)pak_malloc(sizeof(*dict));
     pak_assert(dict);
 
     buck = pak__buckets_new(max);
@@ -954,7 +1002,7 @@ PAK_PREFIX int *pak_io_search_str(const char *to_search, const char *pattern)
     int plen = strlen(pattern);
     int i, j;
 
-    int *finds = pak_vec_new(int, 1);
+    pak_iarr finds = pak_iarr_new(1);
     pak_assert(finds);
 
     for (i = 0; i < slen; i++)
@@ -963,14 +1011,14 @@ PAK_PREFIX int *pak_io_search_str(const char *to_search, const char *pattern)
                 if (pattern[j] != to_search[i + j])
                     break;
                 else if (j == plen - 1)
-                    pak_vec_push(&finds, i);
+                    pak_iarr_push(&finds, i);
             }
 
     return finds;
 
 fail:
     if (finds)
-        pak_vec_free(&finds);
+        pak_iarr_free(&finds);
 
     return NULL;
 }
