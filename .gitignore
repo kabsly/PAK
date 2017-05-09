@@ -1,6 +1,8 @@
 .*
 !.gitignore
 
+tmp.txt
+
 # Editors
 *.orig
 *~
