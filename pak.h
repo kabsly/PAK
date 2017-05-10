@@ -459,7 +459,7 @@ fail:
 
     Features:
         - Optional type-safety
-        - Optional garbage collection
+        - Optional automatic memory managment
         - Ability to index like a normal C array (e.g. "array[0]")
 
     Notes:
@@ -472,10 +472,10 @@ fail:
         assert(arr);
 
         int i;
-        for (i = 0; i < 1000; i++)
+        for (i = 0; i < 1024; i++)
             pak_arr_push(&arr, i);
 
-        for (i = 0; i < 1000; i++)
+        for (i = 0; i < 1024; i++)
             pak_arr_pop(&arr);
 */
 
@@ -662,11 +662,13 @@ PAK_PREFIX int pak__arr_resize(void **pp, int max)
 {
     pak__arr *arr = NULL;
     pak__arr *head = NULL;
+    pak__arr *new_head = NULL;
 
     pak_assert(max > 0);
 
-    arr = *pp;
+    arr = *(pak__arr **) pp;
     head = pak_arr_header(arr);
+
     pak_assert(head->sig == PAK_ARR_SIGNATURE);
 
     if (max < head->count) {
@@ -678,11 +680,10 @@ PAK_PREFIX int pak__arr_resize(void **pp, int max)
 
     head->max = max;
 
-    arr = (pak__arr *)pak_realloc(head, sizeof(*arr) + (head->elem_sz * max));
-    pak_assert(arr);
+    new_head = (pak__arr *)pak_realloc(head, sizeof(*new_head) + (head->elem_sz * max));
+    pak_assert(new_head);
 
-    arr++;
-    *pp = arr;
+    *pp = new_head + 1;
 
     return 0;
 
@@ -693,23 +694,13 @@ fail:
 PAK_PREFIX int pak__arr_expand(void **pp)
 {
     pak__arr *head = pak_arr_header(*pp);
-    pak_assert(head->sig == PAK_ARR_SIGNATURE);
-
     return pak__arr_resize(pp, head->max + head->rate);
-
-fail:
-    return -1;
 }
 
 PAK_PREFIX int pak__arr_contract(void **pp)
 {
     pak__arr *head = pak_arr_header(*pp);
-    pak_assert(head->sig == PAK_ARR_SIGNATURE);
-
     return pak__arr_resize(pp, head->max - head->rate);
-
-fail:
-    return -1;
 }
 
 PAK_PREFIX int pak__arr_push(void **pp, size_t sz, void *e)
@@ -722,6 +713,7 @@ PAK_PREFIX int pak__arr_push(void **pp, size_t sz, void *e)
 
     if (head->count >= head->max) {
         pak_assert(pak_arr_expand(pp) == 0);
+        arr = *pp;
         head = pak_arr_header(arr);
     }
 
