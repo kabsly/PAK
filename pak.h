@@ -10,36 +10,50 @@
         Similarly to STB, this library is highly tailored to the needs of it's
         author, so this library's usefulness may vary.
 
-        Here is a list of the libraries found in PAK:
-
-            - PAK Compare, generic sorting macros
-            - PAK Lists, generic linked list library
-            - PAK Arrays, generic dynamic array library
-            - PAK I/O, file input and output library
-
-        Libraries can be disabled, for example just define PAK_NO_ARR in order
-        to disable PAK arrays from being used.
-
         You must define PAK_IMPLEMENTATION before including this header file to define
         all of the functions, otherwise you'll just get the prototypes.
 
             #define PAK_IMPLEMENTATION
             #include "pak.h"
 
+        You can also define PAK_STATIC in order to define all of the functions
+        as static, isolating the implementation.
+
+        Here is a list of the libraries in this file:
+
+            - PAK Lists, generic linked list library
+            - PAK Arrays, generic dynamic array library
+            - PAK I/O, file input and output library
+
+        More are always on the way.
+
+    Disabling Libraries:
+
+        Libraries can be disabled with defines before including this file
+
+            #define PAK_NO_LIST // Disable linked list library
+            #define PAK_NO_ARR  // Disable dynamic array library
+            #define PAK_NO_IO   // Disable I/O library
+
+        Some of the libraries rely on each other, so if there is ever a conflict where
+        a dependency is disabled, a compile-time error will be thrown via #error.
+
+    Type Safety:
+
         It is also important to know how PAK achieves type-safety in order to
         use the library effectively. PAK uses C macros in order to improvise
         C++ style templates. Consider the following code:
 
-            // Define a array type called "IntArray" which holds int values
-            PAK_INIT_ARR(IntArray, int, NULL);
+            // Define a array type called "int_array" which holds int values
+            PAK_INIT_ARR(int_array, int, NULL);
 
             int main()
             {
-                IntArray vec = IntArray_new(1024);
-
                 int i;
+                int_array arr = int_array_new(1024);
+
                 for (i = 0; i < 2048; i++)
-                    IntArray_push(&vec, i);
+                    int_array_push(&arr, i);
             }
 
         This is a dirty solution, but it is the only way to accomplish generics in C.
@@ -48,6 +62,18 @@
         work by wrapping around generic void* functions. So if the library
         needs to be debugged, simply use the void* functions to do so.
 
+    Error handling:
+
+        PAK uses return codes to signal an error. Usually 0 means success and -1
+        means failure, check the actual function definition if you are not sure.
+        
+        If you would like PAK to explicitly print out assertion fails, then define
+        PAK_VERBOSE before including the file.
+
+        The author of this library makes no guarantee that the library is secure,
+        so please use at your own risk.
+
+    Malloc Wrapper:
 
         All calls to malloc, realloc, free, etc are wrapped around macros, so
         they can easily be redefined by the user, just define PAK_NO_MALLOC,
@@ -62,10 +88,6 @@
         redefine ALL of the wrapper macros. This is because PAK uses typecasts
         in order to provide support for C++, so depending on your compiler, you
         may get references to undefined functions without warning!
-
-
-        You can also define PAK_STATIC in order to define all of the functions
-        as static, isolating the implementation.
 
     License:
 
@@ -553,20 +575,26 @@ PAK_PREFIX int pak__arr_pop(void **pp);
 /* Define commmon types for PAK arr */
 #ifdef PAK_IMPLEMENTATION
     PAK_INIT_ARR(pak_iarr, int,     NULL)
+    PAK_INIT_ARR(pak_larr, long,    NULL)
     PAK_INIT_ARR(pak_darr, double,  NULL)
     PAK_INIT_ARR(pak_farr, float,   NULL)
     PAK_INIT_ARR(pak_carr, char,    NULL)
+    PAK_INIT_ARR(pak_sarr, char*,   NULL)
 #else
     PAK_INIT_ARR_PROTOTYPES(pak_iarr, int)
+    PAK_INIT_ARR_PROTOTYPES(pak_larr, long)
     PAK_INIT_ARR_PROTOTYPES(pak_darr, double)
     PAK_INIT_ARR_PROTOTYPES(pak_farr, float)
     PAK_INIT_ARR_PROTOTYPES(pak_carr, char)
+    PAK_INIT_ARR_PROTOTYPES(pak_sarr, char*)
 #endif
 
 #define pak_iarr_foreach pak_arr_foreach
+#define pak_larr_foreach pak_arr_foreach
 #define pak_darr_foreach pak_arr_foreach
 #define pak_farr_foreach pak_arr_foreach
 #define pak_carr_foreach pak_arr_foreach
+#define pak_sarr_foreach pak_arr_foreach
 
 /* Begin function definitions */
 #ifdef PAK_IMPLEMENTATION
