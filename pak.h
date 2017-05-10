@@ -111,7 +111,7 @@ extern "C" {
 #   define pak_assert(C) if (!(C)) goto fail;
 #endif
 
-// Malloc wrapper
+/* Malloc wrapper */
 #if defined PAK_IMPLEMENTATION && !defined PAK_NO_MALLOC
 #   include <stdlib.h>
 #   define pak_malloc   malloc
@@ -122,41 +122,11 @@ extern "C" {
 
 #ifdef PAK_IMPLEMENTATION
 #   include <stdio.h>
-#   include <string.h> // memcpy
+#   include <string.h> /* memcpy */
 #   include <stdarg.h>
 #else
-#   include <stddef.h> // size_t
+#   include <stddef.h> /* size_t */
 #endif
-
-/*
-   The PAK Comparision Library
-
-   Generic comparison functions all macroed up. Especially made for use in
-   C standard sorting functions
-*/
-
-#define PAK_INIT_COMPARE(NAME, TYPE, OP)                   \
-    int NAME(const void *a, const void *b)                 \
-    {                                                      \
-        return -(*(const TYPE *) a OP *(const TYPE *) b);  \
-    }
-
-#define PAK_INIT_COMPARE_PROTOTYPE(NAME)    \
-    extern int NAME(const void *a, const void *b);
-
-#ifdef PAK_IMPLEMENTATION
-    PAK_INIT_COMPARE(pak_icmp_des, int,     +)
-    PAK_INIT_COMPARE(pak_fcmp_des, float,   +)
-    PAK_INIT_COMPARE(pak_dcmp_des, double,  +)
-#else
-    PAK_INIT_COMPARE_PROTOTYPE(pak_icmp_des)
-    PAK_INIT_COMPARE_PROTOTYPE(pak_fcmp_des)
-    PAK_INIT_COMPARE_PROTOTYPE(pak_dcmp_des)
-#endif
-
-/*
-   End of PAK comparision library
-*/
 
 /*
    The PAK List library
@@ -184,7 +154,7 @@ extern "C" {
 
 #ifndef PAK_NO_LIST
 
-// Memory managment function used when we delete elements from the list
+/* Memory managment function used when we delete elements from the list */
 typedef void (*pak__list_gc)(void *);
 
 typedef struct pak_node {
@@ -201,14 +171,14 @@ typedef struct {
     pak_node *last;
 } pak_list;
 
-// Looping utilities
+/* Looping utilities */
 #define pak_list_foreach(L, N)       for (N = L->first; N != NULL && N->next != NULL; N = N->next)
 #define pak_list_foreach_back(L, N)  for (N = L->last ; N != NULL && N->prev != NULL; N = N->prev)
 #define pak_node_data(T, N)          *(T *) (N)->data
 
-// Function protypes with wrapper macros
+/* Function protypes with wrapper macros */
 
-// List creation and destruction
+/* List creation and destruction */
 PAK_PREFIX pak_list *pak__list_new(size_t elem_sz);
 #define pak_list_new(T) pak__list_new(sizeof(T))
 
@@ -217,17 +187,17 @@ PAK_PREFIX pak_list *pak__list_new_gc(size_t elem_sz, pak__list_gc gc);
 
 PAK_PREFIX void pak_list_free(pak_list **pp);
 
-// Pushing and popping
+/* Pushing and popping */
 PAK_PREFIX void pak_list_pop(pak_list *list);
 PAK_PREFIX int pak__list_push(pak_list *list, size_t sz, void *e);
 #define pak_list_push(L, E) pak__list_push(L, sizeof(E), &(E))
 
-// Unshifting and shifting
+/* Unshifting and shifting */
 PAK_PREFIX void pak_list_shift(pak_list *list);
 PAK_PREFIX int pak__list_unshift(pak_list *list, size_t sz, void *e);
 #define pak_list_unshift(L, E) pak__list_unshift(L, sizeof(E), &(E))
 
-// Create typesafe wrapper functions around the void* ones
+/* Create typesafe wrapper functions around the void* ones */
 #define PAK_INIT_LIST(NAME, TYPE, GC)                                                       \
     typedef pak_list* NAME;                                                                 \
     typedef pak_node* NAME##_node;                                                          \
@@ -240,7 +210,7 @@ PAK_PREFIX int pak__list_unshift(pak_list *list, size_t sz, void *e);
     PAK_PREFIX void NAME##_shift(NAME l)            { pak_list_shift(l); }                  \
     PAK_PREFIX TYPE NAME##_data(NAME##_node n)      { return pak_node_data(TYPE, n); }
 
-// For header files
+/* For header files */
 #define PAK_INIT_LIST_PROTOTYPES(NAME, TYPE)        \
     typedef pak_list *NAME;                         \
     typedef pak_node *NAME##_node;                  \
@@ -253,7 +223,7 @@ PAK_PREFIX int pak__list_unshift(pak_list *list, size_t sz, void *e);
     extern void NAME##_shift(NAME l);               \
     extern TYPE NAME##_data(NAME##_node *n);
 
-// Begin PAK list function definitions
+/* Begin PAK list function definitions */
 #ifdef PAK_IMPLEMENTATION
 
 PAK_PREFIX pak_list *pak__list_new(size_t elem_sz)
@@ -286,13 +256,13 @@ fail:
     return NULL;
 }
 
-// Clear out all of the elements and free the list
+/* Clear out all of the elements and free the list */
 PAK_PREFIX void pak_list_free(pak_list **pp)
 {
-    pak_list *list = *pp;
-    pak_assert(list); // Double free?
-
     int i;
+    pak_list *list = *pp;
+    pak_assert(list); /* Double free? */
+
     for (i = 0; i < list->count; i++)
         pak_list_pop(list);
 
@@ -303,7 +273,7 @@ fail:
     return;
 }
 
-// Push value to back of the list
+/* Push value to back of the list */
 PAK_PREFIX int pak__list_push(pak_list *list, size_t sz, void *p)
 {
     pak_node *node = NULL;
@@ -346,14 +316,17 @@ fail:
     return -1;
 }
 
-// Remove elements at the beginning of the list
+/* Remove elements at the beginning of the list */
 PAK_PREFIX void pak_list_pop(pak_list *list)
 {
+    pak_node *last = NULL;
+    pak_node *prev = NULL;
+
     pak_assert(list->count > 0);
     pak_assert(list->last);
 
-    pak_node *last = list->last;
-    pak_node *prev = last->prev;
+    last = list->last;
+    prev = last->prev;
 
     if (list->gc)
         list->gc(last->data);
@@ -374,7 +347,7 @@ fail:
     return;
 }
 
-// Push element to front of the list
+/* Push element to front of the list */
 PAK_PREFIX int pak__list_unshift(pak_list *list, size_t sz, void *p)
 {
     pak_node *node = NULL;
@@ -417,14 +390,17 @@ fail:
     return -1;
 }
 
-// Remove element from beginning of the list
+/* Remove element from beginning of the list */
 PAK_PREFIX void pak_list_shift(pak_list *list)
 {
+    pak_node *first = NULL;
+    pak_node *next = NULL;
+
     pak_assert(list->count > 0);
     pak_assert(list->first);
 
-    pak_node *first = list->first;
-    pak_node *next = first->next;
+    first = list->first;
+    next = first->next;
 
     if (list->gc)
         list->gc(first->data);
@@ -445,8 +421,8 @@ fail:
     return;
 }
 
-#endif // PAK_IMPLEMENTATION
-#endif // PAK_NO_LIST
+#endif /* PAK_IMPLEMENTATION */
+#endif /* PAK_NO_LIST */
 
 /*
     End of PAK List library
@@ -483,17 +459,15 @@ fail:
 
 #ifndef PAK_NO_ARR
 
-// Function pointer to a free elements when doing resizes, pops, etc
-// (I call it "garbage collection", because using "garbage collection" and "C"
-// in the same sentence gets people's attention.)
+/* Function pointer to a free elements when doing resizes, pops, etc */
 typedef void (*pak__arr_gc)(void *);
 
-// A unique signature kept inside of the array metadata
+/* A unique signature kept inside of the array metadata */
 #ifndef PAK_ARR_SIGNATURE
 #   define PAK_ARR_SIGNATURE 0x5F3C2A
 #endif
 
-// Header which contains the array metadata
+/* Header which contains the array metadata */
 typedef struct {
     int count;
     int max;
@@ -503,11 +477,11 @@ typedef struct {
     pak__arr_gc gc;
 } pak__arr;
 
-// The header is always the first element at the array, but we increment the
-// pointer in order to hide it from the user
+/* The header is always the first element at the array, but we increment the
+   pointer in order to hide it from the user */
 #define pak_arr_header(V)   (((pak__arr *) (V) - 1))
 
-// Utility macros
+/* Utility macros */
 #define pak_arr_count(V)        (pak_arr_header((V))->count)
 #define pak_arr_max(V)          (pak_arr_header((V))->max)
 #define pak_arr_elem_sz(V)      (pak_arr_header((V))->elem_sz)
@@ -516,8 +490,7 @@ typedef struct {
 #define pak_arr_last(V)         V[pak_arr_count(V) - 1]
 #define pak_arr_sort(V, CMP)    qsort((void *) (V), pak_arr_count(V), pak_arr_elem_sz(V), CMP);
 
-// Get values from the array , without knowing the type, mostly for internal
-// use, but we'll make it available to the user
+/* Get values from the array , without knowing the type, for internal use */
 #define pak_arr_notype_get(V, I)    (void *)((char *) (V) + ((I) * pak_arr_elem_sz(V)))
 #define pak_arr_notype_last(V)      pak_arr_notype_get((V), pak_arr_count(V) - 1)
 
@@ -545,8 +518,7 @@ PAK_PREFIX int pak__arr_push(void **pp, size_t sz, void *e);
 PAK_PREFIX int pak__arr_pop(void **pp);
 #define pak_arr_pop(PP) pak__arr_pop((void **) (PP))
 
-// Create typesafe wrapper functions for the array implementation,
-// using a "ghetto" C++ style template.
+/* Create typesafe wrapper functions for the array implementation */
 #define PAK_INIT_ARR(NAME, TYPE, GC)                                                                \
     typedef TYPE* NAME;                                                                             \
                                                                                                     \
@@ -562,7 +534,7 @@ PAK_PREFIX int pak__arr_pop(void **pp);
     PAK_PREFIX int NAME##_push(NAME *pp, TYPE val)  { return pak_arr_push(pp, val); }               \
     PAK_PREFIX int NAME##_pop(NAME *pp)             { return pak_arr_pop(pp); }
 
-// For header files
+/* For header files */
 #define PAK_INIT_ARR_PROTOTYPES(NAME, TYPE)         \
     typedef TYPE* NAME;                             \
                                                     \
@@ -578,17 +550,17 @@ PAK_PREFIX int pak__arr_pop(void **pp);
     extern int NAME##_push(NAME *pp, TYPE val);     \
     extern int NAME##_pop(NAME *pp);
 
-// Define commmon types for PAK arr
+/* Define commmon types for PAK arr */
 #ifdef PAK_IMPLEMENTATION
-    PAK_INIT_ARR(pak_iarr, int,     NULL);
-    PAK_INIT_ARR(pak_darr, double,  NULL);
-    PAK_INIT_ARR(pak_farr, float,   NULL);
-    PAK_INIT_ARR(pak_carr, char,    NULL);
+    PAK_INIT_ARR(pak_iarr, int,     NULL)
+    PAK_INIT_ARR(pak_darr, double,  NULL)
+    PAK_INIT_ARR(pak_farr, float,   NULL)
+    PAK_INIT_ARR(pak_carr, char,    NULL)
 #else
-    PAK_INIT_ARR_PROTOTYPES(pak_iarr, int);
-    PAK_INIT_ARR_PROTOTYPES(pak_darr, double);
-    PAK_INIT_ARR_PROTOTYPES(pak_farr, float);
-    PAK_INIT_ARR_PROTOTYPES(pak_carr, char);
+    PAK_INIT_ARR_PROTOTYPES(pak_iarr, int)
+    PAK_INIT_ARR_PROTOTYPES(pak_darr, double)
+    PAK_INIT_ARR_PROTOTYPES(pak_farr, float)
+    PAK_INIT_ARR_PROTOTYPES(pak_carr, char)
 #endif
 
 #define pak_iarr_foreach pak_arr_foreach
@@ -596,26 +568,28 @@ PAK_PREFIX int pak__arr_pop(void **pp);
 #define pak_farr_foreach pak_arr_foreach
 #define pak_carr_foreach pak_arr_foreach
 
-// Begin function definitions
+/* Begin function definitions */
 #ifdef PAK_IMPLEMENTATION
 
 PAK_PREFIX void *pak__arr_new(size_t sz, int max)
 {
+    pak__arr *arr = NULL;
+    pak__arr *head = NULL;
+
     pak_assert(max > 0);
 
-    pak__arr *arr = (pak__arr *)pak_malloc(sizeof(*arr) + (sz * max));
+    arr = (pak__arr *)pak_malloc(sizeof(*arr) + (sz * max));
     pak_assert(arr);
 
     arr++;
 
-    pak__arr *h = pak_arr_header(arr);
-
-    h->count = 0;
-    h->max = max;
-    h->rate = max;
-    h->elem_sz = sz;
-    h->sig = PAK_ARR_SIGNATURE;
-    h->gc = NULL;
+    head = pak_arr_header(arr);
+    head->count = 0;
+    head->max = max;
+    head->rate = max;
+    head->elem_sz = sz;
+    head->sig = PAK_ARR_SIGNATURE;
+    head->gc = NULL;
 
     return arr;
 
@@ -639,15 +613,17 @@ fail:
 PAK_PREFIX void pak__arr_free(void **pp)
 {
     void *arr = *pp;
-    pak_assert(arr); // Double free?
+    pak__arr *head = NULL;
 
-    pak__arr *h = pak_arr_header(arr);
-    pak_assert(h->sig == PAK_ARR_SIGNATURE);
+    pak_assert(arr); /* Double free? */
 
-    while(h->gc && --h->count > 0)
-        h->gc(pak_arr_notype_last(arr));
+    head = pak_arr_header(arr);
+    pak_assert(head->sig == PAK_ARR_SIGNATURE);
 
-    pak_free(h);
+    while(head->gc && --head->count > 0)
+        head->gc(pak_arr_notype_last(arr));
+
+    pak_free(head);
     *pp = NULL;
 
 fail:
@@ -656,31 +632,28 @@ fail:
 
 PAK_PREFIX int pak__arr_resize(void **pp, int max)
 {
+    pak__arr *arr = NULL;
+    pak__arr *head = NULL;
+
     pak_assert(max > 0);
 
-    pak__arr *h = pak_arr_header(*pp);
-    pak_assert(h->sig == PAK_ARR_SIGNATURE);
+    arr = *pp;
+    head = pak_arr_header(arr);
+    pak_assert(head->sig == PAK_ARR_SIGNATURE);
 
-    if (max < h->count) {
+    if (max < head->count) {
+        while (head->gc && --head->count > max)
+            head->gc(pak_arr_notype_last(arr));
 
-        // Collect the garbage
-
-        int i = 0;
-        while (h->gc && --h->count > max) {
-            h->gc(pak_arr_notype_last(*pp));
-            i++;
-        }
-
-        h->count = max;
+        head->count = max;
     }
 
-    h->max = max;
+    head->max = max;
 
-    pak__arr *arr = (pak__arr *)pak_realloc(h, sizeof(*arr) + (h->elem_sz * max));
+    arr = (pak__arr *)pak_realloc(head, sizeof(*arr) + (head->elem_sz * max));
     pak_assert(arr);
 
     arr++;
-
     *pp = arr;
 
     return 0;
@@ -691,10 +664,10 @@ fail:
 
 PAK_PREFIX int pak__arr_expand(void **pp)
 {
-    pak__arr *h = pak_arr_header(*pp);
-    pak_assert(h->sig == PAK_ARR_SIGNATURE);
+    pak__arr *head = pak_arr_header(*pp);
+    pak_assert(head->sig == PAK_ARR_SIGNATURE);
 
-    return pak__arr_resize(pp, h->max + h->rate);
+    return pak__arr_resize(pp, head->max + head->rate);
 
 fail:
     return -1;
@@ -702,10 +675,10 @@ fail:
 
 PAK_PREFIX int pak__arr_contract(void **pp)
 {
-    pak__arr *h = pak_arr_header(*pp);
-    pak_assert(h->sig == PAK_ARR_SIGNATURE);
+    pak__arr *head = pak_arr_header(*pp);
+    pak_assert(head->sig == PAK_ARR_SIGNATURE);
 
-    return pak__arr_resize(pp, h->max - h->rate);
+    return pak__arr_resize(pp, head->max - head->rate);
 
 fail:
     return -1;
@@ -714,17 +687,17 @@ fail:
 PAK_PREFIX int pak__arr_push(void **pp, size_t sz, void *e)
 {
     pak__arr *arr = *(pak__arr **) pp;
-    pak__arr *h = pak_arr_header(arr);
+    pak__arr *head = pak_arr_header(arr);
 
-    pak_assert(h->sig == PAK_ARR_SIGNATURE);
-    pak_assert(sz == h->elem_sz)
+    pak_assert(head->sig == PAK_ARR_SIGNATURE);
+    pak_assert(sz == head->elem_sz)
 
-    if (h->count >= h->max) {
+    if (head->count >= head->max) {
         pak_assert(pak_arr_expand(pp) == 0);
-        h = pak_arr_header(arr);
+        head = pak_arr_header(arr);
     }
 
-    h->count++;
+    head->count++;
 
     memcpy(pak_arr_notype_last(arr), e, sz);
 
@@ -736,18 +709,18 @@ fail:
 
 PAK_PREFIX int pak__arr_pop(void **pp)
 {
-    pak__arr *h = pak_arr_header(*pp);
-    pak_assert(h->sig == PAK_ARR_SIGNATURE);
+    pak__arr *head = pak_arr_header(*pp);
+    pak_assert(head->sig == PAK_ARR_SIGNATURE);
 
-    if (h->count > 0) {
-        if (h->gc)
-            h->gc(pak_arr_notype_last(*pp));
+    if (head->count > 0) {
+        if (head->gc)
+            head->gc(pak_arr_notype_last(*pp));
 
-        h->count--;
+        head->count--;
 
-        if (h->count < h->max - h->rate) {
+        if (head->count < head->max - head->rate) {
             pak__arr_contract(pp);
-            h = pak_arr_header(*pp);
+            head = pak_arr_header(*pp);
         }
     }
 
@@ -757,8 +730,8 @@ fail:
     return -1;
 }
 
-#endif // PAK_IMPLEMENTATION
-#endif // PAK_NO_ARR
+#endif /* PAK_IMPLEMENTATION */
+#endif /* PAK_NO_ARR */
 
 /*
    End of PAK Array Library
@@ -768,7 +741,7 @@ fail:
     The PAK Dictionary (hashmap) Library
 
     A generic hashmap implementation, that uses seperate chaining and the FNV1A
-    hash function by default.
+    hash function by default. (WIP)
 */
 
 #ifndef PAK_NO_DICT
@@ -777,46 +750,13 @@ fail:
 #   error "PAK Dictionaries require array to be used."
 #endif
 
-// Function pointers for hashing and memory management
-typedef unsigned long (*pak__dict_hash) (const char *);
-typedef void          (*pak__dict_gc)   (void *);
-
-// Key Value Pairs
-typedef struct {
-    char *key;
-    void *val;
-    struct pak_dict_node *next;
-} pak_dict_node;
-
-// Define a PAK Array which will serve as our buckets
-#ifdef PAK_IMPLEMENTATION
-    PAK_INIT_ARR(pak__buckets, pak_dict_node*, NULL)
-#else // Avoid dual typedefs
-    PAK_INIT_ARR_PROTOTYPES(pak__buckets, pak_dict_node*)
-#endif
-
-typedef struct {
-    size_t elem_sz;
-    pak__buckets buckets;
-    pak__dict_gc gc;
-    pak__dict_hash hash;
-} pak_dict;
-
-// Hashing algorithms
+/* Hashing algorithms */
 PAK_PREFIX unsigned long pak_dict_FNV1A(const char *data);
 
-// Function declarations, with wrapper macros
-
-PAK_PREFIX pak_dict *pak__dict_new(int max, size_t elem_sz);
-#define pak_dict_new(T, M) pak__dict_new(M, sizeof(T))
-
-PAK_PREFIX int pak__dict_add(pak_dict *dict, char *key, size_t sz, void *val);
-#define pak_dict_add(D, K, V) pak__dict_add(D, K, sizeof(V), (void *) &(V))
-
-// Begin PAK Dictionary implementation
+/* Begin PAK Dictionary implementation */
 #ifdef PAK_IMPLEMENTATION
 
-// Fowler-Noll-Vo hash function
+/* Fowler-Noll-Vo hash function */
 PAK_PREFIX unsigned long pak_dict_FNV1A(const char *data)
 {
     static const unsigned long FNV_PRIME  = 16777619;
@@ -833,77 +773,8 @@ PAK_PREFIX unsigned long pak_dict_FNV1A(const char *data)
     return hash;
 }
 
-PAK_PREFIX pak_dict *pak__dict_new(int max, size_t elem_sz)
-{
-    pak_dict *dict = NULL;
-    pak__buckets buck = NULL;
-
-    dict = (pak_dict *)pak_malloc(sizeof(*dict));
-    pak_assert(dict);
-
-    buck = pak__buckets_new(max);
-    pak_assert(buck);
-
-    dict->elem_sz = elem_sz;
-    dict->buckets = buck;
-    dict->gc = NULL;
-    // Use FNV1A hash by default
-    dict->hash = pak_dict_FNV1A;
-
-    return dict;
-
-fail:
-    if (dict)
-        pak_free(dict);
-
-    return NULL;
-}
-
-PAK_PREFIX pak_dict_node *pak__dict_node_new(char *key, void *val)
-{
-    pak_dict_node *node = pak_malloc(sizeof(*node));
-    pak_assert(node);
-
-    node->key = strdup(key);
-    pak_assert(node->key);
-
-    node->val = val;
-    node->next = NULL;
-
-    return node;
-
-fail:
-    if (node)
-        pak_free(node);
-
-    return NULL;
-}
-
-PAK_PREFIX int pak__dict_add(pak_dict *dict, char *key, size_t sz, void *p)
-{
-    void *val = NULL;
-
-    pak_assert(sz == dict->elem_sz);
-
-    val = pak_malloc(sz);
-    pak_assert(val);
-
-    memcpy(val, p, sz);
-
-    int loc = dict->hash(key) % pak__buckets_max(dict->buckets);
-    pak_dict_node *next = dict->buckets[loc];
-
-    return 0;
-
-fail:
-    if (val)
-        pak_free(val);
-
-    return -1;
-}
-
-#endif // PAK_IMPLEMENTATION
-#endif // PAK_NO_DICT
+#endif /* PAK_IMPLEMENTATION */
+#endif /* PAK_NO_DICT */
 
 /*
    End of PAK Dictionary Library
@@ -914,22 +785,24 @@ fail:
 
    This library contains various utility functions for managing file input and
    output. You can do things such as opening text files as strings with a single
-   function call, or listing out a directory of files, etc.
+   function call.
 */
 
 #ifndef PAK_NO_IO
 
+#ifdef PAK_NO_ARR
+#   error "PAK I/O depends on PAK arrays"
+#endif
+
 PAK_PREFIX char *pak_io_read_file(const char *path);
 PAK_PREFIX int pak_io_append_file(const char *path, const char *s, ...);
-PAK_PREFIX int *pak_io_search_str(const char *to_search, const char *pattern);
-PAK_PREFIX int *pak_io_search_file(const char *path, const char *pattern);
 
 #ifdef PAK_IMPLEMENTATION
 
-PAK_PREFIX char *pak_io_read_file(const char *path)
+PAK_PREFIX pak_carr pak_io_read_file(const char *path)
 {
+    pak_carr s = NULL;
     FILE *f = NULL;
-    char *s = NULL;
     size_t sz;
 
     f = fopen(path, "r");
@@ -939,8 +812,8 @@ PAK_PREFIX char *pak_io_read_file(const char *path)
     sz = ftell(f);
     rewind(f);
 
-    // +1 for NULL byte
-    s = (char *)pak_malloc(sizeof(*s) * (sz + 1));
+    /* +1 for NULL byte */
+    s = pak_carr_new(sz + 1);
     pak_assert(s);
 
     fread(s, sizeof(char), sz, f);
@@ -955,17 +828,19 @@ fail:
         fclose(f);
 
     if (s)
-        pak_free(s);
+        pak_carr_free(&s);
 
     return NULL;
 }
 
 PAK_PREFIX int pak_io_append_file(const char *path, const char *s, ...)
 {
-    FILE *f = fopen(path, "a");
+    FILE *f = NULL;
+    va_list a;
+
+    f = fopen(path, "a");
     pak_assert(f);
 
-    va_list a;
     va_start(a, s);
 
     vfprintf(f, s, a);
@@ -977,64 +852,14 @@ PAK_PREFIX int pak_io_append_file(const char *path, const char *s, ...)
     return 0;
 
 fail:
+    if (f)
+        fclose(f);
+
     return -1;
 }
 
-PAK_PREFIX int *pak_io_search_str(const char *to_search, const char *pattern)
-{
-    int slen = strlen(to_search);
-    int plen = strlen(pattern);
-    int i, j;
-
-    pak_iarr finds = pak_iarr_new(1);
-    pak_assert(finds);
-
-    for (i = 0; i < slen; i++)
-        if (pattern[0] == to_search[i])
-            for (j = 0; j < plen && j + i < slen; j++) {
-                if (pattern[j] != to_search[i + j])
-                    break;
-                else if (j == plen - 1)
-                    pak_iarr_push(&finds, i);
-            }
-
-    return finds;
-
-fail:
-    if (finds)
-        pak_iarr_free(&finds);
-
-    return NULL;
-}
-
-PAK_PREFIX int *pak_io_search_file(const char *path, const char *pattern)
-{
-    char *file = pak_io_read_file(path);
-    pak_assert(file);
-
-    int *finds = pak_io_search_str(file, pattern);
-    pak_assert(finds);
-
-    return finds;
-
-fail:
-    if (file)
-        pak_free(file);
-
-    return NULL;
-}
-
-/*
-   @TODO(kabsly):
-
-    Features to add:
-        - Read entire directories of files, indexed with a hashmap, with the
-          file name as the key.
-        - Add file searching functions
-*/
-
-#endif // PAK_IMPLEMENTATION
-#endif // PAK_NO_IO
+#endif /* PAK_IMPLEMENTATION */
+#endif /* PAK_NO_IO */
 
 /*
     End of PAK I/O Library
@@ -1044,4 +869,4 @@ fail:
 }
 #endif
 
-#endif // PAK_HEADER
+#endif /* PAK_HEADER */
