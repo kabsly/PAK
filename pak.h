@@ -466,6 +466,41 @@ fail:
         It is not recommended that you use this section of PAK in C++, due to the
         fact that it is redundant to the STL.
 
+        Also, be extermely careful when using the "raw" functions, as they are
+        not at all typesafe. Consider using PAK_INIT_ARR if this becomes a problem.
+
+    PAK_INIT_ARR Usage:
+
+        PAK_INIT_ARR macro takes in three arguments, first being the name of your
+        data structure, the second being the type, and the third being an optional
+        memory managment function pointer, for example
+
+            PAK_INIT_ARR(intptr_array, int*, some_free_func)
+
+        Use NULL in place of the memory managment function pointer if the data
+        does not need to be free'd (which is most of the use case)
+
+            PAK_INIT_ARR(int_array, int, NULL) // Notice the third arg is NULL
+
+        PAK_INIT_ARR will define the following (replace <name> with the first argument):
+
+            typedef <type *> <name>;
+
+            int     <name>_count    (<name> arr);
+            int     <name>_max      (<name> arr);
+            size_t  <name>_elem_sz  (<name> arr);
+            int     <name>_isvalid  (<name> arr);
+            NAME    <name>_new      (int max);
+            void    <name>_free     (<name> *pp);
+            int     <name>_resize   (<name> *pp, int max);
+            int     <name>_expand   (<name> *pp);
+            int     <name>_contract (<name> *pp);
+            int     <name>_push     (<name> *pp, <type> val);
+            int     <name>_pop      (<name> *pp);
+
+        Notice PAK Arrays do not have getter or setter functions.
+        That is because you can index the array with "[]".
+
     Example:
 
         int *arr = pak_arr_new(int, 1024);
@@ -610,8 +645,8 @@ PAK_PREFIX void *pak__arr_new(size_t sz, int max)
     pak_assert(arr);
 
     arr++;
-
     head = pak_arr_header(arr);
+
     head->count = 0;
     head->max = max;
     head->rate = max;
