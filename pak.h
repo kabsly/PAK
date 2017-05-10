@@ -713,7 +713,7 @@ PAK_PREFIX int pak__arr_push(void **pp, size_t sz, void *e)
 
     if (head->count >= head->max) {
         pak_assert(pak_arr_expand(pp) == 0);
-        arr = *pp;
+        arr = *(pak__arr **) pp;
         head = pak_arr_header(arr);
     }
 
