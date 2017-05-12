@@ -161,9 +161,25 @@ extern "C" {
 #   include <stdio.h>
 #   include <string.h> /* memcpy */
 #   include <stdarg.h>
+#   include <stdint.h>
 #else
 #   include <stddef.h> /* size_t */
+#   include <stdint.h>
 #endif
+
+/* Common types */
+
+typedef enum {
+    PAK_FALSE = 0,
+    PAK_TRUE  = 1
+} pak_bool;
+
+typedef char           pak_i8;
+typedef short          pak_i16;
+typedef long           pak_i32;
+typedef unsigned char  pak_ui8;
+typedef unsigned short pak_ui16;
+typedef unsigned long  pak_ui32;
 
 /*
     PAK Math:
