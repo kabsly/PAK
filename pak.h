@@ -21,6 +21,7 @@
 
         Here is a list of the libraries in this file:
 
+            - PAK Math, utilities for doing things with numbers
             - PAK Lists, generic linked list library
             - PAK Arrays, generic dynamic array library
             - PAK I/O, file input and output library
@@ -31,6 +32,7 @@
 
         Libraries can be disabled with defines before including this file
 
+            #define PAK_NO_MATH // Disable math library
             #define PAK_NO_LIST // Disable linked list library
             #define PAK_NO_ARR  // Disable dynamic array library
             #define PAK_NO_IO   // Disable I/O library
@@ -134,12 +136,25 @@ extern "C" {
 #endif
 
 /* Malloc wrapper */
-#if defined PAK_IMPLEMENTATION && !defined PAK_NO_MALLOC
+#if defined(PAK_IMPLEMENTATION) && !defined(PAK_NO_MALLOC)
 #   include <stdlib.h>
 #   define pak_malloc   malloc
 #   define pak_calloc   calloc
 #   define pak_realloc  realloc
 #   define pak_free     free
+#elif defined(PAK_IMPLEMENTATION)
+#   ifndef pak_malloc
+#       error "PAK Error: Please redefine pak_malloc."
+#   endif
+#   ifndef pak_calloc
+#       error "PAK Error: Please redefine pak_calloc."
+#   endif
+#   ifndef pak_realloc
+#       error "PAK Error: Please redefine pak_realloc."
+#   endif
+#   ifndef pak_free
+#       error "PAK Error: Please redefine pak_free."
+#   endif
 #endif
 
 #ifdef PAK_IMPLEMENTATION
@@ -149,6 +164,97 @@ extern "C" {
 #else
 #   include <stddef.h> /* size_t */
 #endif
+
+/*
+    PAK Math:
+
+    A basic math utility library featuring safe min/max functions, pseudo-random
+    number generation.
+
+    Notes:
+
+        The random number generator featured in this library is NOT cryptographically
+        secure
+            
+        You can find out more about the random number generation algorithm
+        at http://burtleburtle.net/bob/rand/smallprng.html
+*/
+
+/* Typesafe min/max functions in order to avoid the many issues with
+   the classic "#define max(a, b)" */
+
+#ifndef PAK_NO_MATH
+
+#define PAK_INIT_COMPARE(NAME, TYPE, OP) \
+    PAK_PREFIX TYPE NAME(TYPE a, TYPE b) { return a OP b ? a : b; }
+
+#define PAK_INIT_COMPARE_PROTOTYPE(NAME, TYPE) \
+    extern TYPE NAME(TYPE a, TYPE b);
+
+#ifdef PAK_IMPLEMENTATION
+    PAK_INIT_COMPARE(pak_imax, int,     >)
+    PAK_INIT_COMPARE(pak_lmax, long,    >)
+    PAK_INIT_COMPARE(pak_fmax, float,   >)
+    PAK_INIT_COMPARE(pak_dmax, double,  >)
+    PAK_INIT_COMPARE(pak_imin, int,     <)
+    PAK_INIT_COMPARE(pak_lmin, long,    <)
+    PAK_INIT_COMPARE(pak_fmin, float,   <)
+    PAK_INIT_COMPARE(pak_dmin, double,  <)
+
+    PAK_INIT_COMPARE(pak_uimax, unsigned int,  >)
+    PAK_INIT_COMPARE(pak_ulmax, unsigned long, >)
+    PAK_INIT_COMPARE(pak_uimin, unsigned int,  <)
+    PAK_INIT_COMPARE(pak_ulmin, unsigned long, <)
+#else
+#ifndef PAK_STATIC
+    PAK_INIT_COMPARE_PROTOTYPE(pak_imax, int)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_lmax, long)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_fmax, float)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_dmax, double)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_imin, int)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_lmin, long)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_fmin, float)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_dmin, double)
+
+    PAK_INIT_COMPARE_PROTOTYPE(pak_uimax, unsigned int)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_ulmax, unsigned long)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_uimin, unsigned int)
+    PAK_INIT_COMPARE_PROTOTYPE(pak_ulmin, unsigned long)
+#endif
+#endif
+
+PAK_PREFIX unsigned long pak_math_rand(unsigned long seed);
+
+#ifdef PAK_IMPLEMENTATION
+
+/* See above documentation for info on the pseudo-random number generator */
+PAK_PREFIX unsigned long pak_math_rand(unsigned long seed)
+{
+    unsigned long ctx[4];
+    unsigned long e;
+
+    #define pak_rot(X, K) (((X)<<(K))|((X)>>(32-(K))))
+    
+    ctx[0] = 0xf1ea5eed;
+    ctx[1] = seed;
+    ctx[2] = seed;
+    ctx[3] = seed;
+
+    e = ctx[0] - pak_rot(ctx[1], 27);
+    ctx[0] = ctx[1] ^ pak_rot(ctx[2], 17);
+    ctx[1] = ctx[2] + ctx[3];
+    ctx[2] = ctx[3] + e;
+    ctx[3] = e + ctx[0];
+
+    #undef pak_rot
+    return ctx[3];
+}
+
+#endif /* PAK_IMPLEMENTATION */
+#endif /* PAK_NO_MATH */
+/*
+    End of PAK math
+*/
 
 /*
    The PAK List library
@@ -196,7 +302,7 @@ typedef struct {
 /* Looping utilities */
 #define pak_list_foreach(L, N)       for (N = L->first; N != NULL && N->next != NULL; N = N->next)
 #define pak_list_foreach_back(L, N)  for (N = L->last ; N != NULL && N->prev != NULL; N = N->prev)
-#define pak_node_data(T, N)          *(T *) (N)->data
+#define pak_list_data(T, N)          *(T *) (N)->data
 
 /* Function protypes with wrapper macros */
 
@@ -230,7 +336,7 @@ PAK_PREFIX int pak__list_unshift(pak_list *list, size_t sz, void *e);
     PAK_PREFIX void NAME##_pop(NAME l)              { pak_list_pop(l); }                    \
     PAK_PREFIX int  NAME##_unshift(NAME l, TYPE e)  { return pak_list_unshift(l, e); }      \
     PAK_PREFIX void NAME##_shift(NAME l)            { pak_list_shift(l); }                  \
-    PAK_PREFIX TYPE NAME##_data(NAME##_node n)      { return pak_node_data(TYPE, n); }
+    PAK_PREFIX TYPE NAME##_data(NAME##_node n)      { return pak_list_data(TYPE, n); }
 
 /* For header files */
 #define PAK_INIT_LIST_PROTOTYPES(NAME, TYPE)        \
@@ -490,7 +596,7 @@ fail:
             int     <name>_max      (<name> arr);
             size_t  <name>_elem_sz  (<name> arr);
             int     <name>_isvalid  (<name> arr);
-            NAME    <name>_new      (int max);
+            <name>  <name>_new      (int max);
             void    <name>_free     (<name> *pp);
             int     <name>_resize   (<name> *pp, int max);
             int     <name>_expand   (<name> *pp);
@@ -616,12 +722,14 @@ PAK_PREFIX int pak__arr_pop(void **pp);
     PAK_INIT_ARR(pak_carr, char,    NULL)
     PAK_INIT_ARR(pak_sarr, char*,   NULL)
 #else
+#ifndef PAK_STATIC
     PAK_INIT_ARR_PROTOTYPES(pak_iarr, int)
     PAK_INIT_ARR_PROTOTYPES(pak_larr, long)
     PAK_INIT_ARR_PROTOTYPES(pak_darr, double)
     PAK_INIT_ARR_PROTOTYPES(pak_farr, float)
     PAK_INIT_ARR_PROTOTYPES(pak_carr, char)
     PAK_INIT_ARR_PROTOTYPES(pak_sarr, char*)
+#endif
 #endif
 
 #define pak_iarr_foreach pak_arr_foreach
