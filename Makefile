@@ -16,6 +16,11 @@ $(TARGET): $(OBJECTS)
 all:
 	$(TARGET)
 
+lines:
+	wc -l *.h
+
+.PHONY: tests clean
+
 clean:
 	rm -rf $(OBJECTS) a.out
 	find . -name "*.gc*" -exec rm {} \;
