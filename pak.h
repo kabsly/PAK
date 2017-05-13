@@ -138,10 +138,10 @@ extern "C" {
 /* Malloc wrapper */
 #if defined(PAK_IMPLEMENTATION) && !defined(PAK_NO_MALLOC)
 #   include <stdlib.h>
-#   define pak_malloc   malloc
-#   define pak_calloc   calloc
-#   define pak_realloc  realloc
-#   define pak_free     free
+#   define pak_malloc(S)     malloc(S)
+#   define pak_calloc(I, S)  calloc(I, S)
+#   define pak_realloc(P, S) realloc(P, S)
+#   define pak_free(P)       free(P)
 #elif defined(PAK_IMPLEMENTATION)
 #   ifndef pak_malloc
 #       error "PAK Error: Please redefine pak_malloc."
@@ -162,9 +162,12 @@ extern "C" {
 #   include <string.h> /* memcpy */
 #   include <stdarg.h>
 #   include <stdint.h>
+#   include <math.h>
+#   ifndef M_PI
+#       define M_PI 3.1415926535
+#   endif
 #else
 #   include <stddef.h> /* size_t */
-#   include <stdint.h>
 #endif
 
 /* Common types */
@@ -239,7 +242,12 @@ typedef unsigned long  pak_ui32;
 #endif
 #endif
 
+/* Random number generation */
 PAK_PREFIX unsigned long pak_math_rand(unsigned long seed);
+
+/* Radians and degree operations */
+PAK_PREFIX float pak_math_deg_to_rad(float deg);
+PAK_PREFIX float pak_math_rad_to_deg(float rad);
 
 #ifdef PAK_IMPLEMENTATION
 
@@ -264,6 +272,16 @@ PAK_PREFIX unsigned long pak_math_rand(unsigned long seed)
 
     #undef pak_rot
     return ctx[3];
+}
+
+PAK_PREFIX float pak_math_deg_to_rad(float deg)
+{
+    return (deg * M_PI)/180.0f;
+}
+
+PAK_PREFIX float pak_math_rad_to_deg(float rad)
+{
+    return rad * (180.0f/M_PI);
 }
 
 #endif /* PAK_IMPLEMENTATION */
