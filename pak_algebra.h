@@ -136,6 +136,7 @@ PAK_ALGEBRA_PREFIX float pak_vec3_dot       (pak_vec3 *a, pak_vec3 *b);
 PAK_ALGEBRA_PREFIX void  pak_vec3_cross     (pak_vec3 *d, pak_vec3 *a, pak_vec3 *b);
 PAK_ALGEBRA_PREFIX void  pak_vec3_lerp      (pak_vec3 *d, pak_vec3 *a, pak_vec3 *b, float s);
 PAK_ALGEBRA_PREFIX void  pak_vec3_norm      (pak_vec3 *d, pak_vec3 *v);
+PAK_ALGEBRA_PREFIX void  pak_vec3_norm_eq   (pak_vec3 *v);
 PAK_ALGEBRA_PREFIX void  pak_vec3_neg       (pak_vec3 *v);
 
 PAK_ALGEBRA_PREFIX void  pak_vec3_transform3(pak_vec3 *v, const pak_mat3 *m);
@@ -313,6 +314,11 @@ PAK_ALGEBRA_PREFIX void pak_vec3_norm(pak_vec3 *d, pak_vec3 *v)
     d->x = v->x/mag;
     d->y = v->y/mag;
     d->z = v->z/mag;
+}
+
+PAK_ALGEBRA_PREFIX void pak_vec3_norm_eq(pak_vec3 *v)
+{
+    pak_vec3_norm(v, v);
 }
 
 PAK_ALGEBRA_PREFIX void pak_vec3_neg(pak_vec3 *v)
