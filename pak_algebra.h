@@ -48,6 +48,9 @@
 
 #ifdef PAK_ALGEBRA_IMPLEMENTATION
 #   include <math.h>
+#   ifndef M_PI
+#       define M_PI 3.1415926535
+#   endif
 #endif
 
 #ifdef PAK_ALGEBRA_STATIC
@@ -144,9 +147,15 @@ PAK_ALGEBRA_PREFIX void  pak_vec3_rotate_x  (pak_vec3 *v, float angle);
 PAK_ALGEBRA_PREFIX void  pak_vec3_rotate_y  (pak_vec3 *v, float angle);
 PAK_ALGEBRA_PREFIX void  pak_vec3_rotate_z  (pak_vec3 *v, float angle);
 
+PAK_ALGEBRA_PREFIX void     pak_mat3_identity(pak_mat3 *m);
+PAK_ALGEBRA_PREFIX void     pak_mat3_mul(pak_mat3 *d, pak_mat3 *a, pak_mat3 *b);
 PAK_ALGEBRA_PREFIX pak_mat3 pak_mat3_rotation_x_new(float angle);
 PAK_ALGEBRA_PREFIX pak_mat3 pak_mat3_rotation_y_new(float angle);
 PAK_ALGEBRA_PREFIX pak_mat3 pak_mat3_rotation_z_new(float angle);
+
+PAK_ALGEBRA_PREFIX void pak_mat4_identity(pak_mat4 *m);
+PAK_ALGEBRA_PREFIX void pak_mat4_look_at(pak_mat4 *d, pak_vec3 *eye, pak_vec3 *center, pak_vec3 *up);
+PAK_ALGEBRA_PREFIX void pak_mat4_perspective(pak_mat4 *d, float fov, float aspect, float near, float far);
 
 #ifdef PAK_ALGEBRA_IMPLEMENTATION
 
@@ -420,6 +429,68 @@ PAK_ALGEBRA_PREFIX void pak_mat3_mul(pak_mat3 *d, pak_mat3 *a, pak_mat3 *b)
 
 /*
    end pak_mat3
+*/
+
+/*
+    pak_mat4
+*/
+
+PAK_ALGEBRA_PREFIX void pak_mat4_identity(pak_mat4 *m)
+{
+    int i, j;
+    for (i = 0; i < 4; i++)
+        for (j = 0; j < 4; j++)
+            m->f44[i][j] = i - j ? 0 : 1;
+}
+
+PAK_ALGEBRA_PREFIX void pak_mat4_look_at(pak_mat4 *d, pak_vec3 *eye, pak_vec3 *center, pak_vec3 *up)
+{
+    pak_vec3 f, u ,s, tmp;
+
+    pak_vec3_sub(&tmp, center, eye);
+    pak_vec3_norm(&f, &tmp);
+
+    pak_vec3_norm(&u, up);
+
+    pak_vec3_cross(&tmp, &f, &u);
+    pak_vec3_norm(&s, &tmp);
+
+    pak_mat4_identity(d);
+
+    d->f44[0][0] = s.x;
+    d->f44[1][0] = s.y;
+    d->f44[2][0] = s.z;
+    d->f44[0][1] = u.x;
+    d->f44[1][1] = u.y;
+    d->f44[2][1] = u.z;
+    d->f44[0][2] =-f.x;
+    d->f44[1][2] =-f.y;
+    d->f44[2][2] =-f.z;
+    d->f44[3][0] =-pak_vec3_dot(&s, eye);
+    d->f44[3][1] =-pak_vec3_dot(&u, eye);
+    d->f44[3][2] = pak_vec3_dot(&f, eye);
+}
+
+PAK_ALGEBRA_PREFIX void pak_mat4_perspective(pak_mat4 *d, float fov, float aspect, float near, float far)
+{
+    float d2r = M_PI/180.0f; /* Degrees to radians */
+
+    float y_scale = 1.0f/tan(d2r * fov/2);
+    float x_scale = y_scale/aspect;
+
+    float c3r3 = (far + near)/(near + far);     /* 3rd column, 3rd row */
+    float c4r3 = 2 * far * near - (far - near);
+
+    *d = pak_mat4_new(
+        x_scale, 0,       0,    0,
+        0,       y_scale, 0,    0,
+        0,       0,       c3r3, c4r3,
+        0,       0,       -1,   0
+    );
+}
+
+/*
+    end pak_mat4
 */
 
 #endif /* PAK_ALGEBRA_IMPLEMENTATION */
