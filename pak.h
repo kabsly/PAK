@@ -135,8 +135,8 @@ extern "C" {
 #   define pak_assert(C) if (!(C)) goto fail;
 #endif
 
-#define pak_static_assert(EXPR) \
-    ((void)sizeof(char[(EXPR) ? 1 : -1]))
+#define pak_static_assert(EXPR, MSG) \
+    ((void)sizeof(char[(EXPR && MSG) ? 1 : -1]))
 
 /* Malloc wrapper */
 #if defined(PAK_IMPLEMENTATION) && !defined(PAK_NO_MALLOC)
