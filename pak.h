@@ -135,6 +135,9 @@ extern "C" {
 #   define pak_assert(C) if (!(C)) goto fail;
 #endif
 
+#define pak_static_assert(EXPR) \
+    ((void)sizeof(char[(EXPR) ? 1 : -1]))
+
 /* Malloc wrapper */
 #if defined(PAK_IMPLEMENTATION) && !defined(PAK_NO_MALLOC)
 #   include <stdlib.h>
@@ -765,13 +768,6 @@ PAK_PREFIX int pak__arr_pop(void **pp);
     PAK_INIT_ARR_PROTOTYPES(pak_sarr, char*)
 #endif
 #endif
-
-#define pak_iarr_foreach pak_arr_foreach
-#define pak_larr_foreach pak_arr_foreach
-#define pak_darr_foreach pak_arr_foreach
-#define pak_farr_foreach pak_arr_foreach
-#define pak_carr_foreach pak_arr_foreach
-#define pak_sarr_foreach pak_arr_foreach
 
 /* Begin function definitions */
 #ifdef PAK_IMPLEMENTATION
