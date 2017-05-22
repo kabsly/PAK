@@ -1306,6 +1306,7 @@ fail:
     extern unsigned int NAME##_rate(NAME dict);                                   \
                                                                                   \
     extern NAME NAME##_new(unsigned int sz)                                       \
+    extern void NAME##_free(NAME *pp);                                            \
     extern int NAME##_insert(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val);  \
     extern void NAME##_remove(NAME dict, KEY_PARAM_TYPE key);                     \
     extern NAME##_pair *NAME##_get(NAME dict, KEY_PARAM_TYPE key);                \
