@@ -49,7 +49,7 @@
             // Define a array type called "int_array" which holds int values
             PAK_INIT_ARR(int_array, int, NULL);
 
-            int main()
+            int main(void)
             {
                 int i;
                 int_array arr = int_array_new(1024);
@@ -301,295 +301,247 @@ PAK_PREFIX float pak_math_rad_to_deg(float rad)
 
    A simple, generic doubly linked list implementation.
 
+   You must initialize the linked list via the PAK_INIT_LIST macro, which serves
+   as an improvised C++ template.
+
+   For example, here we define a linked list of integers:
+
+        PAK_INIT_LIST(int_list, int, (void)) // The third argument is a free function
+
+   PAK_INIT_LIST will define the following:
+
+        <name> <name>_new(void);
+        void <name>_free(<name> *pp);
+        int  <name>_push(<name> list, <type> data);
+        int  <name>_unshift(<name> list, <type> data);
+        void <name>_pop(<name> list);
+        void <name>_shift(<name> list);
+
    Example:
 
-        pak_list *list = pak_list_new(int);
+        PAK_INIT_LIST(int_list, int, (void))
 
-        int i;
-        for (i = 0; i < 1000; i++)
-            pak_list_push(list, i);
+        int main(void)
+        {
+            int_list list = int_list_new();
+            int i;
 
-        // Delete elements from end
-        for (i = 0; i < 100; i++)
-            pak_list_pop(list);
+            for (i = 0; i < 1024; i++)
+                int_list_push(list, i);
 
-        // Delete elements from beginning
-        for (i = 0; i < 100; i++)
-            pak_list_shift(list);
+            for (i = 0; i < 1024; i++)
+                int_list_pop(list, i);
 
-        pak_list_free(&list);
+            for (i = 0; i < 1024; i++)
+                int_list_unshift(list, i);
+
+            for (i = 0; i < 1024; i++)
+                int_list_shift(list, i);
+
+            int_list_free(&list);
+            return 0;
+        }
 */
 
 #ifndef PAK_NO_LIST
 
-/* Memory managment function used when we delete elements from the list */
-typedef void (*pak__list_gc)(void *);
+/* For header files */
+#define PAK_INIT_LIST_PROTOTYPES(NAME, TYPE)        \
+    typedef struct NAME##_node {                    \
+        TYPE data;                                  \
+        struct NAME##_node *next;                   \
+        struct NAME##_node *prev;                   \
+    } NAME##_node;                                  \
+                                                    \
+    typedef struct {                                \
+        int count;                                  \
+        NAME##_node *first;                         \
+        NAME##_node *last;                          \
+    } NAME##_;                                      \
+                                                    \
+    typedef NAME##_* NAME;                          \
+                                                    \
+    extern NAME NAME##_new(void);                   \
+    extern void NAME##_free(NAME *pp);              \
+    extern int NAME##_push(NAME list, TYPE data);   \
+    extern int NAME##_unshift(NAME list, TYPE data);\
+    extern void NAME##_pop(NAME list);              \
+    extern void NAME##_shift(NAME list);
 
-typedef struct pak_node {
-    void *data;
-    struct pak_node *next;
-    struct pak_node *prev;
-} pak_node;
-
-typedef struct {
-    int count;
-    size_t elem_sz;
-    pak__list_gc gc;
-    pak_node *first;
-    pak_node *last;
-} pak_list;
+#define PAK_INIT_LIST(NAME, TYPE, FREE)                 \
+    typedef struct NAME##_node {                        \
+        TYPE data;                                      \
+        struct NAME##_node *next;                       \
+        struct NAME##_node *prev;                       \
+    } NAME##_node;                                      \
+                                                        \
+    typedef struct {                                    \
+        int count;                                      \
+        NAME##_node *first;                             \
+        NAME##_node *last;                              \
+    } NAME##_;                                          \
+                                                        \
+    typedef NAME##_* NAME;                              \
+                                                        \
+    NAME NAME##_new(void)                               \
+    {                                                   \
+        NAME list = (NAME)pak_malloc(sizeof(*list));    \
+        pak_assert(list);                               \
+                                                        \
+        list->count = 0;                                \
+        list->first = NULL;                             \
+        list->last = NULL;                              \
+                                                        \
+        return list;                                    \
+                                                        \
+    fail:                                               \
+        return NULL;                                    \
+    }                                                   \
+                                                        \
+    void NAME##_free(NAME *pp)                          \
+    {                                                   \
+        int i;                                          \
+        NAME list = NULL;                               \
+        NAME##_node *curr = NULL;                       \
+                                                        \
+        list = *pp;                                     \
+        pak_assert(list); /* Double free? */            \
+                                                        \
+        curr = list->first;                             \
+                                                        \
+        while (curr && list->count > 0) {               \
+            NAME##_node *tmp = curr->next;              \
+                                                        \
+            FREE(curr->data);                           \
+            pak_free(curr);                             \
+                                                        \
+            curr = tmp;                                 \
+            list->count--;                              \
+        }                                               \
+                                                        \
+        pak_free(list);                                 \
+        *pp = NULL;                                     \
+                                                        \
+    fail:                                               \
+        return;                                         \
+    }                                                   \
+                                                        \
+    int NAME##_push(NAME list, TYPE data)               \
+    {                                                   \
+        NAME##_node *node = NULL;                       \
+                                                        \
+        node = (NAME##_node *)pak_malloc(sizeof(*node));\
+        pak_assert(node);                               \
+                                                        \
+        node->next = NULL;                              \
+        node->prev = NULL;                              \
+        node->data = data;                              \
+                                                        \
+        if (list->count == 0) {                         \
+            list->first = node;                         \
+            list->last = node;                          \
+        } else {                                        \
+            list->last->next = node;                    \
+            node->prev = list->last;                    \
+            list->last = node;                          \
+        }                                               \
+                                                        \
+        list->count++;                                  \
+                                                        \
+        return 0;                                       \
+                                                        \
+    fail:                                               \
+        return -1;                                      \
+    }                                                   \
+                                                        \
+    void NAME##_pop(NAME list)                          \
+    {                                                   \
+        NAME##_node *last = NULL;                       \
+        NAME##_node *prev = NULL;                       \
+                                                        \
+        pak_assert(list->count > 0);                    \
+        pak_assert(list->last);                         \
+                                                        \
+        last = list->last;                              \
+        prev = last->prev;                              \
+                                                        \
+        FREE(last->data);                               \
+        pak_free(last);                                 \
+                                                        \
+        if (prev) {                                     \
+            list->last = prev;                          \
+            prev->next = NULL;                          \
+        } else {                                        \
+            list->first = NULL;                         \
+            list->last = NULL;                          \
+        }                                               \
+                                                        \
+        list->count--;                                  \
+                                                        \
+    fail:                                               \
+        return;                                         \
+    }                                                   \
+                                                        \
+    int NAME##_unshift(NAME list, TYPE data)            \
+    {                                                   \
+        NAME##_node *node = NULL;                       \
+                                                        \
+        node = (NAME##_node*)pak_malloc(sizeof(*node)); \
+        pak_assert(node);                               \
+                                                        \
+        node->next = NULL;                              \
+        node->prev = NULL;                              \
+        node->data = data;                              \
+                                                        \
+        if (list->count == 0) {                         \
+            list->first = node;                         \
+            list->last = node;                          \
+        } else {                                        \
+            list->first->prev = node;                   \
+            node->next = list->first;                   \
+            list->first = node;                         \
+        }                                               \
+                                                        \
+        list->count++;                                  \
+                                                        \
+        return 0;                                       \
+                                                        \
+    fail:                                               \
+        return -1;                                      \
+    }                                                   \
+                                                        \
+    void NAME##_shift(NAME list)                        \
+    {                                                   \
+        NAME##_node *first = NULL;                      \
+        NAME##_node *next = NULL;                       \
+                                                        \
+        pak_assert(list->count > 0);                    \
+        pak_assert(list->first);                        \
+                                                        \
+        first = list->first;                            \
+        next = first->next;                             \
+                                                        \
+        FREE(first->data);                              \
+        pak_free(first);                                \
+                                                        \
+        if (next) {                                     \
+            list->first = next;                         \
+            next->prev = NULL;                          \
+        } else {                                        \
+            list->first = NULL;                         \
+            list->last = NULL;                          \
+        }                                               \
+                                                        \
+        list->count--;                                  \
+                                                        \
+    fail:                                               \
+        return;                                         \
+    }
 
 /* Looping utilities */
 #define pak_list_foreach(L, N)       for (N = L->first; N != NULL && N->next != NULL; N = N->next)
 #define pak_list_foreach_back(L, N)  for (N = L->last ; N != NULL && N->prev != NULL; N = N->prev)
-#define pak_list_data(T, N)          *(T *) (N)->data
 
-/* Function protypes with wrapper macros */
-
-/* List creation and destruction */
-PAK_PREFIX pak_list *pak__list_new(size_t elem_sz);
-#define pak_list_new(T) pak__list_new(sizeof(T))
-
-PAK_PREFIX pak_list *pak__list_new_gc(size_t elem_sz, pak__list_gc gc);
-#define pak_list_new_gc(T, GC) pak__list_new_gc(sizeof(T), GC)
-
-PAK_PREFIX void pak_list_free(pak_list **pp);
-
-/* Pushing and popping */
-PAK_PREFIX void pak_list_pop(pak_list *list);
-PAK_PREFIX int pak__list_push(pak_list *list, size_t sz, void *e);
-#define pak_list_push(L, E) pak__list_push(L, sizeof(E), &(E))
-
-/* Unshifting and shifting */
-PAK_PREFIX void pak_list_shift(pak_list *list);
-PAK_PREFIX int pak__list_unshift(pak_list *list, size_t sz, void *e);
-#define pak_list_unshift(L, E) pak__list_unshift(L, sizeof(E), &(E))
-
-/* Create typesafe wrapper functions around the void* ones */
-#define PAK_INIT_LIST(NAME, TYPE, GC)                                                       \
-    typedef pak_list* NAME;                                                                 \
-    typedef pak_node* NAME##_node;                                                          \
-                                                                                            \
-    PAK_PREFIX NAME NAME##_new()                    { return pak_list_new_gc(TYPE, GC); }   \
-    PAK_PREFIX void NAME##_free(NAME *l)            { pak_list_free(l); }                   \
-    PAK_PREFIX int  NAME##_push(NAME l, TYPE e)     { return pak_list_push(l, e); }         \
-    PAK_PREFIX void NAME##_pop(NAME l)              { pak_list_pop(l); }                    \
-    PAK_PREFIX int  NAME##_unshift(NAME l, TYPE e)  { return pak_list_unshift(l, e); }      \
-    PAK_PREFIX void NAME##_shift(NAME l)            { pak_list_shift(l); }                  \
-    PAK_PREFIX TYPE NAME##_data(NAME##_node n)      { return pak_list_data(TYPE, n); }
-
-/* For header files */
-#define PAK_INIT_LIST_PROTOTYPES(NAME, TYPE)        \
-    typedef pak_list *NAME;                         \
-    typedef pak_node *NAME##_node;                  \
-                                                    \
-    extern NAME NAME##_new();                       \
-    extern void NAME##_free(NAME *l);               \
-    extern int  NAME##_push(NAME l, TYPE e);        \
-    extern void NAME##_pop(NAME l);                 \
-    extern int  NAME##_unshift(NAME *l, TYPE e);    \
-    extern void NAME##_shift(NAME l);               \
-    extern TYPE NAME##_data(NAME##_node *n);
-
-/* Begin PAK list function definitions */
-#ifdef PAK_IMPLEMENTATION
-
-PAK_PREFIX pak_list *pak__list_new(size_t elem_sz)
-{
-    pak_list *list = (pak_list *)pak_malloc(sizeof(*list));
-    pak_assert(list);
-
-    list->count = 0;
-    list->elem_sz = elem_sz;
-    list->gc = NULL;
-    list->first = NULL;
-    list->last = NULL;
-
-    return list;
-
-fail:
-    return NULL;
-}
-
-PAK_PREFIX pak_list *pak__list_new_gc(size_t elem_sz, pak__list_gc gc)
-{
-    pak_list *list = pak__list_new(elem_sz);
-    pak_assert(list);
-
-    list->gc = gc;
-
-    return list;
-
-fail:
-    return NULL;
-}
-
-/* Clear out all of the elements and free the list */
-PAK_PREFIX void pak_list_free(pak_list **pp)
-{
-    int i;
-    pak_list *list = *pp;
-    pak_assert(list); /* Double free? */
-
-    for (i = 0; i < list->count; i++)
-        pak_list_pop(list);
-
-    pak_free(list);
-    *pp = NULL;
-
-fail:
-    return;
-}
-
-/* Push value to back of the list */
-PAK_PREFIX int pak__list_push(pak_list *list, size_t sz, void *p)
-{
-    pak_node *node = NULL;
-    void *data = NULL;
-
-    pak_assert(sz == list->elem_sz);
-
-    node = (pak_node *)pak_malloc(sizeof(*node));
-    pak_assert(node);
-
-    node->next = NULL;
-    node->prev = NULL;
-
-    data = pak_malloc(sz);
-    pak_assert(data);
-
-    memcpy(data, p, sz);
-    node->data = data;
-
-    if (list->count == 0) {
-        list->first = node;
-        list->last = node;
-    } else {
-        list->last->next = node;
-        node->prev = list->last;
-        list->last = node;
-    }
-
-    list->count++;
-
-    return 0;
-
-fail:
-    if (node)
-        pak_free(node);
-
-    if (data)
-        pak_free(data);
-
-    return -1;
-}
-
-/* Remove elements at the beginning of the list */
-PAK_PREFIX void pak_list_pop(pak_list *list)
-{
-    pak_node *last = NULL;
-    pak_node *prev = NULL;
-
-    pak_assert(list->count > 0);
-    pak_assert(list->last);
-
-    last = list->last;
-    prev = last->prev;
-
-    if (list->gc)
-        list->gc(last->data);
-
-    pak_free(last->data);
-
-    if (prev) {
-        list->last = prev;
-        prev->next = NULL;
-    } else {
-        list->first = NULL;
-        list->last = NULL;
-    }
-
-    list->count--;
-
-fail:
-    return;
-}
-
-/* Push element to front of the list */
-PAK_PREFIX int pak__list_unshift(pak_list *list, size_t sz, void *p)
-{
-    pak_node *node = NULL;
-    void *data = NULL;
-
-    pak_assert(sz == list->elem_sz);
-
-    node = (pak_node *)pak_malloc(sizeof(*node));
-    pak_assert(node);
-
-    node->next = NULL;
-    node->prev = NULL;
-
-    data = pak_malloc(sz);
-    pak_assert(data);
-
-    memcpy(data, p, sz);
-    node->data = data;
-
-    if (list->count == 0) {
-        list->first = node;
-        list->last = node;
-    } else {
-        list->first->prev = node;
-        node->next = list->first;
-        list->first = node;
-    }
-
-    list->count++;
-
-    return 0;
-
-fail:
-    if (node)
-        pak_free(node);
-
-    if (data)
-        pak_free(data);
-
-    return -1;
-}
-
-/* Remove element from beginning of the list */
-PAK_PREFIX void pak_list_shift(pak_list *list)
-{
-    pak_node *first = NULL;
-    pak_node *next = NULL;
-
-    pak_assert(list->count > 0);
-    pak_assert(list->first);
-
-    first = list->first;
-    next = first->next;
-
-    if (list->gc)
-        list->gc(first->data);
-
-    pak_free(first->data);
-
-    if (next) {
-        list->first = next;
-        next->prev = NULL;
-    } else {
-        list->first = NULL;
-        list->last = NULL;
-    }
-
-    list->count--;
-
-fail:
-    return;
-}
-
-#endif /* PAK_IMPLEMENTATION */
 #endif /* PAK_NO_LIST */
 
 /*
@@ -1219,6 +1171,7 @@ fail:
                                                                 \
                 KEY_FREE(curr->key);                            \
                 VAL_FREE(curr->val);                            \
+                                                                \
                 pak_free(curr);                                 \
                                                                 \
                 if (prev)                                       \
@@ -1278,9 +1231,7 @@ fail:
         cpy = VAL_COPY(val);                                    \
         pak_assert(val VAL_ASSERT);                             \
                                                                 \
-        if (pair->val VAL_ASSERT)                               \
-            VAL_FREE(pair->val);                                \
-                                                                \
+        VAL_FREE(pair->val);                                    \
         pair->val = cpy;                                        \
                                                                 \
         return 0;                                               \
@@ -1317,6 +1268,9 @@ fail:
     extern void NAME##_remove(NAME dict, KEY_PARAM_TYPE key);                     \
     extern NAME##_pair *NAME##_get(NAME dict, KEY_PARAM_TYPE key);                \
     extern int NAME##_set(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val);
+
+/* NOTE: Unlike most of the data structures, we do not predefine common types, due to
+   the fact of how large PAK_INIT_DICT is, and how functions like strdup are nonstandard */
 
 /* Hashing algorithms */
 PAK_PREFIX pak_ui32 pak_dict_FNV1A(const pak_i8 *data, unsigned int len);
