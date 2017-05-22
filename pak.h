@@ -1278,7 +1278,9 @@ fail:
         cpy = VAL_COPY(val);                                    \
         pak_assert(val VAL_ASSERT);                             \
                                                                 \
-        VAL_FREE(pair->val);                                    \
+        if (pair->val VAL_ASSERT)                               \
+            VAL_FREE(pair->val);                                \
+                                                                \
         pair->val = cpy;                                        \
                                                                 \
         return 0;                                               \
