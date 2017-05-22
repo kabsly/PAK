@@ -536,6 +536,44 @@ PAK_PREFIX float pak_math_rad_to_deg(float rad)
                                                         \
     fail:                                               \
         return;                                         \
+    }                                                   \
+                                                        \
+    NAME##_node *NAME##_get(NAME list, int index)       \
+    {                                                   \
+        NAME##_node *curr = NULL;                       \
+        int mid, pos;                                   \
+                                                        \
+        if (index < 0)                                  \
+            index = list->count + index;                \
+                                                        \
+        pak_assert(0 < index && index < list->count);   \
+                                                        \
+        /* Find shortest path possible */               \
+        mid = list->count/2;                            \
+                                                        \
+        if (index <= mid) {                             \
+            pos = 1;                                    \
+            curr = list->first;                         \
+                                                        \
+            while (curr && pos < index) {               \
+                curr = curr->next;                      \
+                pos++;                                  \
+            }                                           \
+        } else {                                        \
+            pos = list->count - 1;                      \
+            curr = list->last;                          \
+                                                        \
+            while (curr && pos > index) {               \
+                curr = curr->prev;                      \
+                pos--;                                  \
+            }                                           \
+        }                                               \
+                                                        \
+        pak_assert(pos == index);                       \
+        return curr;                                    \
+                                                        \
+    fail:                                               \
+        return NULL;                                    \
     }
 
 /* Looping utilities */
