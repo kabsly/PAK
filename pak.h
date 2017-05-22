@@ -129,11 +129,14 @@ extern "C" {
 #endif
 
 #ifdef PAK_VERBOSE
-#   define pak_assert(C) if (!(C)) { fprintf(stderr, "PAK Assertion fail (%s:%d) %s.\n",\
-        __FILE__, __LINE__, #C); goto fail; }
+#   define pak_assert(C) if (!(C)) { fprintf(stderr, "PAK Assertion fail (%s:%s:%d) %s.\n",\
+        __FILE__, __FUNCTION__, __LINE__, #C); goto fail; }
 #else
 #   define pak_assert(C) if (!(C)) goto fail;
 #endif
+
+#define pak_debug(MSG)\
+    fprintf(stderr, "PAK Debug (%s:%s:%d): " MSG "\n", __FILE__, __FUNCTION__, __LINE__);
 
 #define pak_static_assert(EXPR, MSG) \
     ((void)sizeof(char[(EXPR && MSG) ? 1 : -1]))
@@ -625,7 +628,7 @@ fail:
 
             PAK_INIT_ARR(int_array, int, NULL) // Notice the third arg is NULL
 
-        PAK_INIT_ARR will define the following (replace <name> with the first argument):
+        PAK_INIT_ARR will define the following (replace <name> with the first macro parameter):
 
             typedef <type *> <name>;
 
@@ -931,39 +934,486 @@ fail:
 */
 
 /*
-    The PAK Dictionary (hashmap) Library
+    The PAK Dictionary (hashmap) Library:
 
-    A generic hashmap implementation, that uses seperate chaining and the FNV1A
-    hash function by default. (WIP)
+        PAK Dicts are a highly customizable, generic, hashmap library,
+        which use seperate chaining to handle collisons.
+
+        PAK Dicts achieve type-safety through C++ template like C macros.
+        Here is an example which creates a hashmap that uses a "char*"
+        as the key, "int" as the value, and the FNV1A hash function:
+
+            #define PAK_IMPLEMENTATION
+            #include "pak.h"
+            #include <assert.h>
+
+            PAK_INIT_DICT(
+                int_dict,
+
+                // Key          Value
+                char*,          int,
+                const char*,    const int,
+                strdup,         (int),
+                != NULL,        || 1,
+
+                // Functions
+                (char *), strlen, 0 == strcmp,
+                pak_dict_FNV1A,
+                
+                // Key          Value
+                free,           (void)
+            )
+
+            int main(void)
+            {
+                int_dict dict = int_dict_new(1024);
+
+                int_dict_insert(dict, "ABC", 1);
+                int_dict_insert(dict, "DEF", 2);
+                int_dict_insert(dict, "GHI", 3);
+
+                assert(int_dict_get(dict, "ABC")->val == 1);
+                assert(int_dict_get(dict, "DEF")->val == 2);
+                assert(int_dict_get(dict, "GHI")->val == 3);
+
+                return 0;
+            }
+        
+        Notice the (ridiculous) amount of parameters passed into the PAK_INIT_DICT macro.
+        The parameter amount is due to the fact that PAK Dicts are designed to work with
+        a variety of different data types (e.g. data types from a library).
+
+        Let's analyze the parameters passed into PAK_INIT_DICT:
+
+            PAK_INIT_DICT(
+                // Here we declare the type name for the dict,
+                // also serves as a function prefix.
+                int_dict,
+
+                // Here are the data types stored into a key/value pair, respectively.
+                char*, int,
+
+                // Here are the data types passed into insertion functions,
+                // usually the same as key/value pair types, but can be different.
+                const char*, const int,
+
+                // Here are some functions (or typecast to ignore) that copy key/value
+                // parameters into the pairs themselves (e.g. use "strdup" to copy the key).
+                strdup, (int),
+
+                // Here are assertions to make sure that the copy functions above
+                // worked properly (e.g. "strdup" will return NULL if it failed).
+                != NULL, || 1,
+
+                // Here we have a function (or typecast to ignore) that is used
+                // to pass the key into the hash function. Must be of type "char*".
+                (char *),
+                
+                // Here is a function to determine the length of the key you are
+                // using, which is then passed into the hash function.
+                strlen,
+
+                // Here is a comparison function to compare keys, we just use plain
+                // old strcmp, since the keys are of type "char*".
+                0 == strcmp,
+
+                // Here is the hashing function, PAK comes with some already.
+                // The function must be of type "unsigned long(const char*, unsigned int)".
+                pak_dict_FNV1A,
+
+                // Here are the free functions when getting rid of key/value pairs.
+                // We used "strdup" to store the keys, so "free" is needed.
+                // For the "int" values, we have no need free memory, so use "(void)" to ignore.
+                free, (void)
+            )
+
+        Most of this is overkill for a simple "char*" to "int" dictionary, but again,
+        now we can use this with external data types, such as ones in found in libraries.
+
+        For example here we have a dictionary that uses bstrlib, an alternative string library
+        (the library is found here "http://bstring.sourceforge.net/"):
+
+            PAK_INIT_DICT(
+                bstr_dict,
+
+                // Key          Value
+                bstring,        int,
+                const char*,    const int,
+                bfromcstr,      (int),
+                != NULL,        || 1,
+
+                // Functions
+                bdata, blength, 0 == bstrcmp,
+                pak_dict_FNV1A,
+
+                // Key          Value
+                bdestroy,       (void)
+            )
 */
 
 #ifndef PAK_NO_DICT
 
-#if defined PAK_NO_ARR
-#   error "PAK Dictionaries require array to be used."
-#endif
+#define PAK_INIT_DICT(NAME,                                     \
+                      KEY_TYPE, VAL_TYPE,                       \
+                      KEY_PARAM_TYPE, VAL_PARAM_TYPE,           \
+                      KEY_COPY, VAL_COPY,                       \
+                      KEY_ASSERT, VAL_ASSERT,                   \
+                      KEY_ACCESS, KEY_COUNT, KEY_CMP,           \
+                      HASH,                                     \
+                      KEY_FREE, VAL_FREE)                       \
+                                                                \
+    typedef struct NAME##_pair {                                \
+        KEY_TYPE key;                                           \
+        VAL_TYPE val;                                           \
+        struct NAME##_pair *next;                               \
+    } NAME##_pair;                                              \
+                                                                \
+    typedef struct {                                            \
+        unsigned int max;                                       \
+        unsigned int rate;                                      \
+        unsigned int busy;                                      \
+        NAME##_pair **buckets;                                  \
+    } NAME##_;                                                  \
+                                                                \
+    typedef NAME##_* NAME;                                      \
+                                                                \
+    unsigned int NAME##_busy(NAME dict)  { return dict->busy; } \
+    unsigned int NAME##_max(NAME dict)   { return dict->max;  } \
+    unsigned int NAME##_rate(NAME dict)  { return dict->rate; } \
+                                                                \
+    NAME NAME##_new(unsigned int sz)                            \
+    {                                                           \
+        NAME dict = NULL;                                       \
+                                                                \
+        dict = (NAME)pak_malloc(sizeof(*dict));                 \
+        pak_assert(dict);                                       \
+                                                                \
+        dict->buckets = (NAME##_pair **)pak_malloc(             \
+                sizeof(*dict->buckets) * sz);                   \
+        pak_assert(dict->buckets);                              \
+                                                                \
+        dict->busy = 0;                                         \
+        dict->max = sz;                                         \
+        dict->rate = sz;                                        \
+                                                                \
+        memset(dict->buckets, (int)NULL,                        \
+                sizeof(*dict->buckets) * sz);                   \
+                                                                \
+        return dict;                                            \
+                                                                \
+    fail:                                                       \
+        if (dict)                                               \
+            pak_free(dict);                                     \
+                                                                \
+        return NULL;                                            \
+    }                                                           \
+                                                                \
+    void NAME##_free(NAME *pp)                                  \
+    {                                                           \
+        NAME dict = *pp;                                        \
+                                                                \
+        pak_assert(dict); /* Double free? */                    \
+                                                                \
+        if (dict->busy != 0) {                                  \
+            unsigned int i;                                     \
+            for (i = 0; i < dict->max; i++) {                   \
+                NAME##_pair *curr = dict->buckets[i];           \
+                while (curr) {                                  \
+                    NAME##_pair *tmp = curr->next;              \
+                                                                \
+                    KEY_FREE(curr->key);                        \
+                    VAL_FREE(curr->val);                        \
+                    pak_free(curr);                             \
+                                                                \
+                    dict->buckets[i] = tmp;                     \
+                    curr = tmp;                                 \
+                }                                               \
+            }                                                   \
+        }                                                       \
+                                                                \
+        pak_free(dict);                                         \
+        *pp = NULL;                                             \
+                                                                \
+    fail:                                                       \
+        return;                                                 \
+    }                                                           \
+                                                                \
+    int NAME##_insert(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val)\
+    {                                                           \
+        NAME##_pair *pair = NULL;                               \
+        pak_bool key_alloced = PAK_FALSE;                       \
+        pak_bool val_alloced = PAK_FALSE;                       \
+        unsigned int loc;                                       \
+                                                                \
+        pair = (NAME##_pair *)pak_malloc(sizeof(*pair));        \
+        pak_assert(pair);                                       \
+                                                                \
+        pair->key = KEY_COPY(key);                              \
+        if (pair->key KEY_ASSERT)                               \
+            key_alloced = PAK_TRUE;                             \
+        else                                                    \
+            goto fail;                                          \
+                                                                \
+        pair->val = VAL_COPY(val);                              \
+        if (pair->val VAL_ASSERT)                               \
+            val_alloced = PAK_TRUE;                             \
+        else                                                    \
+            goto fail;                                          \
+                                                                \
+        pair->next = NULL;                                      \
+                                                                \
+        loc = HASH(KEY_ACCESS(pair->key),                       \
+                   KEY_COUNT(pair->key)) % dict->max;           \
+                                                                \
+        if (dict->buckets[loc] == NULL) {                       \
+            dict->buckets[loc] = pair;                          \
+            dict->busy++;                                       \
+        } else { /* Collison! */                                \
+            NAME##_pair *curr = dict->buckets[loc];             \
+                                                                \
+            for (;;) {                                          \
+                pak_assert(!(KEY_CMP(curr->key, pair->key)));   \
+                if (curr->next)                                 \
+                    curr = curr->next;                          \
+                else                                            \
+                    break;                                      \
+            }                                                   \
+                                                                \
+            curr->next = pair;                                  \
+        }                                                       \
+                                                                \
+        return 0;                                               \
+                                                                \
+    fail:                                                       \
+        if (pair) {                                             \
+            if (key_alloced)                                    \
+                KEY_FREE(pair->key);                            \
+            if (val_alloced)                                    \
+                VAL_FREE(pair->key);                            \
+                                                                \
+            pak_free(pair);                                     \
+        }                                                       \
+                                                                \
+        return -1;                                              \
+    }                                                           \
+                                                                \
+    void NAME##_remove(NAME dict, KEY_PARAM_TYPE key)           \
+    {                                                           \
+        unsigned int loc;                                       \
+        KEY_TYPE cpy;                                           \
+        NAME##_pair *curr = NULL;                               \
+        NAME##_pair *prev = NULL;                               \
+                                                                \
+        cpy = KEY_COPY(key);                                    \
+        if (!(cpy KEY_ASSERT))                                  \
+            return;                                             \
+                                                                \
+        loc = HASH(KEY_ACCESS(cpy),                             \
+                   KEY_COUNT(cpy)) % dict->max;                 \
+                                                                \
+        curr = dict->buckets[loc];                              \
+                                                                \
+        while (curr) {                                          \
+            if (KEY_CMP(curr->key, cpy)) {                      \
+                NAME##_pair *tmp = curr->next;                  \
+                                                                \
+                KEY_FREE(curr->key);                            \
+                VAL_FREE(curr->val);                            \
+                pak_free(curr);                                 \
+                                                                \
+                if (prev)                                       \
+                    prev->next = tmp;                           \
+                else {                                          \
+                    dict->buckets[loc] = tmp;                   \
+                    if (!tmp)                                   \
+                        dict->busy--;                           \
+                }                                               \
+                                                                \
+                break;                                          \
+            }                                                   \
+                                                                \
+            prev = curr;                                        \
+            curr = curr->next;                                  \
+        }                                                       \
+                                                                \
+        KEY_FREE(cpy);                                          \
+    }                                                           \
+                                                                \
+                                                                \
+    NAME##_pair *NAME##_get(NAME dict, KEY_PARAM_TYPE key)      \
+    {                                                           \
+        unsigned int loc;                                       \
+        KEY_TYPE cpy;                                           \
+        NAME##_pair *curr = NULL;                               \
+                                                                \
+        cpy = KEY_COPY(key);                                    \
+        if (!(cpy KEY_ASSERT))                                  \
+            return NULL;                                        \
+                                                                \
+        loc = HASH(KEY_ACCESS(cpy),                             \
+                   KEY_COUNT(cpy)) % dict->max;                 \
+                                                                \
+        curr = dict->buckets[loc];                              \
+                                                                \
+        while (curr) {                                          \
+            if (KEY_CMP(curr->key, cpy)) {                      \
+                KEY_FREE(cpy);                                  \
+                return curr;                                    \
+            }                                                   \
+            curr = curr->next;                                  \
+        }                                                       \
+                                                                \
+        KEY_FREE(cpy);                                          \
+        return NULL;                                            \
+    }                                                           \
+                                                                \
+    int NAME##_set(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val)\
+    {                                                           \
+        NAME##_pair *pair = NULL;                               \
+                                                                \
+        pair = NAME##_get(dict, key);                           \
+        pak_assert(pair);                                       \
+                                                                \
+        pair->val = VAL_COPY(val);                              \
+        pak_assert(pair->val VAL_ASSERT);                       \
+                                                                \
+        return 0;                                               \
+                                                                \
+    fail:                                                       \
+        return -1;                                              \
+    }
+
+#define PAK_INIT_DICT_PROTOTYPES(NAME, KEY_TYPE, VAL_TYPE,                        \
+                                 KEY_PARAM_TYPE, VAL_PARAM_TYPE)                  \
+                                                                                  \
+    typedef struct NAME##_pair {                                                  \
+        KEY_TYPE key;                                                             \
+        VAL_TYPE val;                                                             \
+        struct NAME##_pair *next;                                                 \
+    } NAME##_pair;                                                                \
+                                                                                  \
+    typedef struct {                                                              \
+        int max;                                                                  \
+        int rate;                                                                 \
+        int busy;                                                                 \
+        NAME##_pair **buckets;                                                    \
+    } NAME##_;                                                                    \
+                                                                                  \
+    typedef NAME##_* NAME;                                                        \
+                                                                                  \
+    extern unsigned int NAME##_busy(NAME dict);                                   \
+    extern unsigned int NAME##_max(NAME dict);                                    \
+    extern unsigned int NAME##_rate(NAME dict);                                   \
+                                                                                  \
+    extern NAME NAME##_new(unsigned int sz)                                       \
+    extern int NAME##_insert(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val);  \
+    extern void NAME##_remove(NAME dict, KEY_PARAM_TYPE key);                     \
+    extern NAME##_pair *NAME##_get(NAME dict, KEY_PARAM_TYPE key);                \
+    extern int NAME##_set(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val);
 
 /* Hashing algorithms */
-PAK_PREFIX unsigned long pak_dict_FNV1A(const char *data);
+PAK_PREFIX pak_ui32 pak_dict_FNV1A(const pak_i8 *data, unsigned int len);
+PAK_PREFIX pak_ui32 pak_dict_ADLER32(const pak_i8 *data, unsigned int len);
+PAK_PREFIX pak_ui32 pak_dict_jenkins(const pak_i8 *data, unsigned int len);
+PAK_PREFIX pak_ui32 pak_dict_murmur3(const pak_ui8 *data, unsigned int len, pak_ui32 key);
 
-/* Begin PAK Dictionary implementation */
 #ifdef PAK_IMPLEMENTATION
 
-/* Fowler-Noll-Vo hash function */
-PAK_PREFIX unsigned long pak_dict_FNV1A(const char *data)
+/* Fowler–Noll–Vo hash */
+pak_ui32 pak_dict_FNV1A(const pak_i8 *data, unsigned int len)
 {
-    static const unsigned long FNV_PRIME  = 16777619;
-    static const unsigned long FNV_OFFSET = 2166136261;
+    static const pak_ui32 FNV_PRIME  = 16777619;
+    static const pak_ui32 FNV_OFFSET = 2166136261;
 
-    unsigned long hash = FNV_OFFSET;
+    pak_ui32 hash = FNV_OFFSET;
+    pak_ui32 i;
 
-    unsigned long i;
-    for (i = 0; i < strlen(data); i++) {
+    for (i = 0; i < len; i++) {
         hash ^= data[i];
         hash *= FNV_PRIME;
     }
 
     return hash;
+}
+
+/* ADLER32 checksum */
+pak_ui32 pak_dict_ADLER32(const pak_i8 *data, unsigned int len)
+{
+    static const pak_ui32 MOD_ADLER = 65521;
+    unsigned int i;
+    pak_ui32 a = 1, b = 0;
+
+    for (i = 0; i < len; i++) {
+        a = (a + data[i]) % MOD_ADLER;
+        b = (b + a) % MOD_ADLER;
+    }
+
+    return (b << 16) | a;
+}
+
+/* Bob Jenkins "One at a Time" hash */
+pak_ui32 pak_dict_jenkins(const pak_i8 *data, unsigned int len)
+{
+    int i = 0;
+    pak_ui32 hash = 0;
+
+    while (i != len) {
+        hash += data[i++];
+        hash += hash << 10;
+        hash ^= hash >> 6;
+    }
+
+    hash += hash << 3;
+    hash ^= hash >> 11;
+    hash += hash << 15;
+
+    return hash;
+}
+
+/* Murmur3 hash */
+pak_ui32 pak_dict_murmur3(const pak_ui8 *data, unsigned int len, pak_ui32 seed)
+{
+    pak_ui32 h = seed;
+
+    if (len > 3) {
+        const pak_ui32* key_x4 = (const pak_ui32*) data;
+        unsigned int i = len >> 2;
+
+        do {
+            pak_ui32 k = *key_x4++;
+            k *= 0xcc9e2d51;
+            k = (k << 15) | (k >> 17);
+            k *= 0x1b873593;
+            h ^= k;
+            h = (h << 13) | (h >> 19);
+            h += (h << 2) + 0xe6546b64;
+        } while (--i);
+
+        data = (const pak_ui8*) key_x4;
+    }
+    
+    if (len & 3) {
+        unsigned int i = len & 3;
+        pak_ui32 k = 0;
+        data = &data[i - 1];
+        do {
+            k <<= 8;
+            k |= *data--;
+        } while (--i);
+        k *= 0xcc9e2d51;
+        k = (k << 15) | (k >> 17);
+        k *= 0x1b873593;
+        h ^= k;
+    }
+
+    h ^= len;
+    h ^= h >> 16;
+    h *= 0x85ebca6b;
+    h ^= h >> 13;
+    h *= 0xc2b2ae35;
+    h ^= h >> 16;
+
+    return h;
 }
 
 #endif /* PAK_IMPLEMENTATION */
