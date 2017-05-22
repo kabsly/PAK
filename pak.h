@@ -1270,12 +1270,16 @@ fail:
     int NAME##_set(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val)\
     {                                                           \
         NAME##_pair *pair = NULL;                               \
+        VAL_TYPE cpy;                                           \
                                                                 \
         pair = NAME##_get(dict, key);                           \
         pak_assert(pair);                                       \
                                                                 \
-        pair->val = VAL_COPY(val);                              \
-        pak_assert(pair->val VAL_ASSERT);                       \
+        cpy = VAL_COPY(val);                                    \
+        pak_assert(val VAL_ASSERT);                             \
+                                                                \
+        VAL_FREE(pair->val);                                    \
+        pair->val = cpy;                                        \
                                                                 \
         return 0;                                               \
                                                                 \
