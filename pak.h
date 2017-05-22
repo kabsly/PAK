@@ -316,6 +316,14 @@ PAK_PREFIX float pak_math_rad_to_deg(float rad)
         int  <name>_unshift(<name> list, <type> data);
         void <name>_pop(<name> list);
         void <name>_shift(<name> list);
+        <name>_node *<name>_get(<name> list, int index);
+
+   The "<name>_get" function takes in an index and fetchs the corresponding
+   node in the list.
+   
+   What is interesting is that the function will actually take in negative numbers,
+   which will essentially fetch the nodes backwards "-1" will map to the last node,
+   "-2" to the second-to-last, etc.
 
    Example:
 
@@ -543,6 +551,7 @@ PAK_PREFIX float pak_math_rad_to_deg(float rad)
         NAME##_node *curr = NULL;                       \
         int mid, pos;                                   \
                                                         \
+        /* Take in negative values, explained in docs */\
         if (index < 0)                                  \
             index = list->count + index;                \
                                                         \
