@@ -1137,29 +1137,10 @@ fail:
         return;                                                 \
     }                                                           \
                                                                 \
-    int NAME##_insert(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val)\
+    /* Interal! */                                              \
+    int NAME##__insert_raw(NAME dict, NAME##_pair *pair)        \
     {                                                           \
-        NAME##_pair *pair = NULL;                               \
-        pak_bool key_alloced = PAK_FALSE;                       \
-        pak_bool val_alloced = PAK_FALSE;                       \
         unsigned int loc;                                       \
-                                                                \
-        pair = (NAME##_pair *)pak_malloc(sizeof(*pair));        \
-        pak_assert(pair);                                       \
-                                                                \
-        pair->key = KEY_COPY(key);                              \
-        if (pair->key KEY_ASSERT)                               \
-            key_alloced = PAK_TRUE;                             \
-        else                                                    \
-            goto fail;                                          \
-                                                                \
-        pair->val = VAL_COPY(val);                              \
-        if (pair->val VAL_ASSERT)                               \
-            val_alloced = PAK_TRUE;                             \
-        else                                                    \
-            goto fail;                                          \
-                                                                \
-        pair->next = NULL;                                      \
                                                                 \
         loc = HASH(KEY_ACCESS(pair->key),                       \
                    KEY_COUNT(pair->key)) % dict->max;           \
@@ -1182,6 +1163,84 @@ fail:
         }                                                       \
                                                                 \
         return 0;                                               \
+                                                                \
+    fail:                                                       \
+        return -1;                                              \
+    }                                                           \
+                                                                \
+    int NAME##_resize(NAME dict, unsigned int remax)            \
+    {                                                           \
+        NAME tmp_dict = NULL;                                   \
+        unsigned int i;                                         \
+                                                                \
+        pak_assert(remax > 0);                                  \
+                                                                \
+        tmp_dict = NAME##_new(remax);                           \
+        pak_assert(tmp_dict);                                   \
+                                                                \
+        for (i = 0; i < dict->max; i++) {                       \
+            NAME##_pair *curr = dict->buckets[i];               \
+            while (curr) {                                      \
+                NAME##_pair *tmp = curr->next;                  \
+                                                                \
+                curr->next = NULL;                              \
+                pak_assert(                                     \
+                    NAME##__insert_raw(tmp_dict, curr) == 0);   \
+                                                                \
+                curr = tmp;                                     \
+                if (!tmp)                                       \
+                    dict->busy--;                               \
+            }                                                   \
+        }                                                       \
+                                                                \
+        pak_free(dict->buckets);                                \
+                                                                \
+        dict->buckets = tmp_dict->buckets;                      \
+        dict->max     = tmp_dict->max;                          \
+        dict->busy    = tmp_dict->busy;                         \
+                                                                \
+        pak_free(tmp_dict);                                     \
+                                                                \
+        return 0;                                               \
+                                                                \
+    fail:                                                       \
+        /* Do a raw free, since we don't want already copied */ \
+        /* data to be free'd as it remains in the old dict.  */ \
+        if (tmp_dict) {                                         \
+            pak_free(tmp_dict->buckets);                        \
+            pak_free(tmp_dict);                                 \
+        }                                                       \
+                                                                \
+        return -1;                                              \
+    }                                                           \
+                                                                \
+    int NAME##_insert(NAME dict, KEY_PARAM_TYPE key, VAL_PARAM_TYPE val)\
+    {                                                           \
+        NAME##_pair *pair = NULL;                               \
+        pak_bool key_alloced = PAK_FALSE;                       \
+        pak_bool val_alloced = PAK_FALSE;                       \
+                                                                \
+        pair = (NAME##_pair *)pak_malloc(sizeof(*pair));        \
+        pak_assert(pair);                                       \
+                                                                \
+        pair->key = KEY_COPY(key);                              \
+        if (pair->key KEY_ASSERT)                               \
+            key_alloced = PAK_TRUE;                             \
+        else                                                    \
+            goto fail;                                          \
+                                                                \
+        pair->val = VAL_COPY(val);                              \
+        if (pair->val VAL_ASSERT)                               \
+            val_alloced = PAK_TRUE;                             \
+        else                                                    \
+            goto fail;                                          \
+                                                                \
+        pair->next = NULL;                                      \
+                                                                \
+        if (dict->busy == dict->max)                            \
+            NAME##_resize(dict, dict->max + dict->rate);        \
+                                                                \
+        return NAME##__insert_raw(dict, pair);                  \
                                                                 \
     fail:                                                       \
         if (pair) {                                             \
@@ -1212,6 +1271,7 @@ fail:
                                                                 \
         curr = dict->buckets[loc];                              \
                                                                 \
+        /* @TODO: Fix bug, only RM'ing once */                  \
         while (curr) {                                          \
             if (KEY_CMP(curr->key, cpy)) {                      \
                 NAME##_pair *tmp = curr->next;                  \
@@ -1228,6 +1288,10 @@ fail:
                     if (!tmp)                                   \
                         dict->busy--;                           \
                 }                                               \
+                                                                \
+                pak_debug("RM");                                \
+                if (dict->busy < dict->max - dict->rate)        \
+                    NAME##_resize(dict, dict->max - dict->rate);\
                                                                 \
                 break;                                          \
             }                                                   \
