@@ -1187,6 +1187,7 @@ fail:
                 pak_assert(                                     \
                     NAME##__insert_raw(tmp_dict, curr) == 0);   \
                                                                 \
+                dict->buckets[i] = tmp;                         \
                 curr = tmp;                                     \
                 if (!tmp)                                       \
                     dict->busy--;                               \
@@ -1224,21 +1225,18 @@ fail:
         pak_assert(pair);                                       \
                                                                 \
         pair->key = KEY_COPY(key);                              \
-        if (pair->key KEY_ASSERT)                               \
-            key_alloced = PAK_TRUE;                             \
-        else                                                    \
-            goto fail;                                          \
+        pak_assert(pair->key KEY_ASSERT)                        \
+        else key_alloced = PAK_TRUE;                            \
                                                                 \
         pair->val = VAL_COPY(val);                              \
-        if (pair->val VAL_ASSERT)                               \
-            val_alloced = PAK_TRUE;                             \
-        else                                                    \
-            goto fail;                                          \
+        pak_assert(pair->val VAL_ASSERT)                        \
+        else val_alloced = PAK_TRUE;                            \
                                                                 \
         pair->next = NULL;                                      \
                                                                 \
-        if (dict->busy == dict->max)                            \
-            NAME##_resize(dict, dict->max + dict->rate);        \
+        if (dict->busy >= dict->max)                            \
+            pak_assert(NAME##_resize(dict,                      \
+                        dict->max + dict->rate) == 0);          \
                                                                 \
         return NAME##__insert_raw(dict, pair);                  \
                                                                 \
@@ -1271,7 +1269,6 @@ fail:
                                                                 \
         curr = dict->buckets[loc];                              \
                                                                 \
-        /* @TODO: Fix bug, only RM'ing once */                  \
         while (curr) {                                          \
             if (KEY_CMP(curr->key, cpy)) {                      \
                 NAME##_pair *tmp = curr->next;                  \
@@ -1280,6 +1277,7 @@ fail:
                 VAL_FREE(curr->val);                            \
                                                                 \
                 pak_free(curr);                                 \
+                pak_debug("RM");                                \
                                                                 \
                 if (prev)                                       \
                     prev->next = tmp;                           \
@@ -1289,7 +1287,6 @@ fail:
                         dict->busy--;                           \
                 }                                               \
                                                                 \
-                pak_debug("RM");                                \
                 if (dict->busy < dict->max - dict->rate)        \
                     NAME##_resize(dict, dict->max - dict->rate);\
                                                                 \
@@ -1361,9 +1358,9 @@ fail:
     } NAME##_pair;                                                                \
                                                                                   \
     typedef struct {                                                              \
-        int max;                                                                  \
-        int rate;                                                                 \
-        int busy;                                                                 \
+        unsigned int max;                                                         \
+        unsigned int rate;                                                        \
+        unsigned int busy;                                                        \
         NAME##_pair **buckets;                                                    \
     } NAME##_;                                                                    \
                                                                                   \
