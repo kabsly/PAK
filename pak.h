@@ -129,10 +129,22 @@ extern "C" {
 #endif
 
 #ifdef PAK_VERBOSE
-#   define pak_assert(C) if (!(C)) { fprintf(stderr, "PAK Assertion fail (%s:%s:%d) %s.\n",\
-        __FILE__, __FUNCTION__, __LINE__, #C); goto fail; }
+#   define pak_assert(C)\
+        if (!(C)) {\
+            fprintf(stderr, "PAK Assertion fail (%s:%s:%d) %s.\n",\
+                    __FILE__, __FUNCTION__, __LINE__, #C);\
+            goto fail;\
+        }
+#   define pak_assertp(C, POST)\
+        if (!(C)) {\
+            fprintf(stderr, "PAK Assertion fail (%s:%s:%d) %s.\n",\
+                    __FILE__, __FUNCTION__, __LINE__, #C);\
+            POST;\
+            goto fail;\
+        }
 #else
 #   define pak_assert(C) if (!(C)) goto fail;
+#   define pak_assertp(C, POST) if (!(C)) { POST; goto fail; }
 #endif
 
 #define pak_debug(MSG)\
@@ -938,6 +950,13 @@ fail:
         PAK Dicts are a highly customizable, generic, hashmap library,
         which use seperate chaining to handle collisons.
 
+    Behavior:
+
+        PAK dictionaries will NEVER go below the initial size that you had set the
+        size to, but they CAN grow in size.
+
+    Usage:
+
         PAK Dicts achieve type-safety through C++ template like C macros.
         Here is an example which creates a hashmap that uses a "char*"
         as the key, "int" as the value, and the FNV1A hash function:
@@ -1173,7 +1192,7 @@ fail:
         NAME tmp_dict = NULL;                                   \
         unsigned int i;                                         \
                                                                 \
-        pak_assert(remax > 0);                                  \
+        pak_assert(remax >= dict->rate);                        \
                                                                 \
         tmp_dict = NAME##_new(remax);                           \
         pak_assert(tmp_dict);                                   \
@@ -1184,8 +1203,8 @@ fail:
                 NAME##_pair *tmp = curr->next;                  \
                                                                 \
                 curr->next = NULL;                              \
-                pak_assert(                                     \
-                    NAME##__insert_raw(tmp_dict, curr) == 0);   \
+                pak_assert(NAME##__insert_raw(tmp_dict,         \
+                            curr) == 0);                        \
                                                                 \
                 dict->buckets[i] = tmp;                         \
                 curr = tmp;                                     \
@@ -1225,10 +1244,12 @@ fail:
         pak_assert(pair);                                       \
                                                                 \
         pair->key = KEY_COPY(key);                              \
+                                                                \
         pak_assert(pair->key KEY_ASSERT)                        \
         else key_alloced = PAK_TRUE;                            \
                                                                 \
         pair->val = VAL_COPY(val);                              \
+                                                                \
         pak_assert(pair->val VAL_ASSERT)                        \
         else val_alloced = PAK_TRUE;                            \
                                                                 \
@@ -1277,7 +1298,6 @@ fail:
                 VAL_FREE(curr->val);                            \
                                                                 \
                 pak_free(curr);                                 \
-                pak_debug("RM");                                \
                                                                 \
                 if (prev)                                       \
                     prev->next = tmp;                           \
@@ -1287,7 +1307,7 @@ fail:
                         dict->busy--;                           \
                 }                                               \
                                                                 \
-                if (dict->busy < dict->max - dict->rate)        \
+                if (dict->busy <= dict->max - dict->rate)       \
                     NAME##_resize(dict, dict->max - dict->rate);\
                                                                 \
                 break;                                          \
